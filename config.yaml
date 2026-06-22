@@ -121,20 +121,20 @@ devices:
   # ──────────────────────────────────────────────────────────────
   # Path B: GATT Notify & Write (Bi-directional Control)
   # ──────────────────────────────────────────────────────────────
-  - id: custom_meter
-    name: "Custom BLE Meter"
-    source: gatt_notify
-    gatt:
-      service_uuid: "ffe0"
-      notify_char_uuid: "ffe1"
-      write_char_uuid: "ffe2"
-    sensors:
-      - key: power
-        unit: "W"
-        device_class: power
-        state_class: measurement
-        decode: { offset: 0, length: 2, type: uint16, endian: little }
-    controls:
-      - key: relay
-        type: switch
-        command: { on: "A10100", off: "A10000" }
+  #- id: custom_meter
+  #  name: "Custom BLE Meter"
+  #  source: gatt_notify
+  #  gatt:
+  #    service_uuid: "ffe0"
+  #    notify_char_uuid: "ffe1"
+  #    write_char_uuid: "ffe2"
+  #  sensors:
+  #    - key: power
+  #      unit: "W"
+  #      device_class: power
+  #      state_class: measurement
+  #      decode: { offset: 0, length: 2, type: uint16, endian: little }
+  #  controls:
+  #    - key: relay
+  #      type: switch
+  #      command: { on: "A10100", off: "A10000" }
