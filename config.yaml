@@ -47,13 +47,17 @@ devices:
     name: "Vehicle OBD"
     source: obd
     obd:
-      mac: "AA:BB:CC:DD:EE:FF"  # If omitted, you can scan and bind in the app UI
       service_uuid: "18F0"
       tx_char_uuid: "2AF1"
       rx_char_uuid: "2AF0"
       tx_delay: 50ms
       init_commands:
-        - "ATSP6"           # ISO 15765-4 CAN 11-bit 500kbps
+        - "ATZ"
+        - "ATE0"
+        - "ATL0"
+        - "ATS0"
+        - "ATH0"
+        - "ATSP6"
     sensors:
       - { key: rpm,          preset: rpm,                 update_interval: 1s }
       - { key: speed,        preset: speed,               update_interval: 1s }
@@ -86,7 +90,6 @@ devices:
     name: "Custom BLE Meter"
     source: gatt_notify
     gatt:
-      mac: "11:22:33:44:55:66"  # If omitted, you can scan and bind in the app UI
       service_uuid: "ffe0"
       notify_char_uuid: "ffe1"
       write_char_uuid: "ffe2"
