@@ -24,7 +24,7 @@ devices:
     source: advertisement
     instance_mode: mac
     match:
-      service_data_uuid: "F525"
+      service_data_uuid: "F51C"
       manufacturer_id: 0x004C
     sensors:
       - key: temperature
