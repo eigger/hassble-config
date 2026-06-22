@@ -25,7 +25,7 @@ devices:
     instance_mode: mac
     match:
       service_data_uuid: "F51C"
-      manufacturer_id: 0x004C
+      manufacturer_id: 76        # Apple Inc. (0x004C) — kaml은 hex 리터럴 불안정, decimal 사용
       manufacturer_min_length: 24
     sensors:
       - key: temperature
@@ -56,7 +56,7 @@ devices:
     source: advertisement
     instance_mode: shared
     match:
-      manufacturer_id: 0x035D
+      manufacturer_id: 861       # 0x035D
     sensors:
       - key: parking_time
         device_class: timestamp
