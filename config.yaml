@@ -60,7 +60,6 @@ devices:
     sensors:
       - key: parking_time
         device_class: timestamp
-        state_class: measurement
         source_field: manufacturer_data
         min_length: 14
         decode: { offset: 7, length: 4, type: timestamp }
