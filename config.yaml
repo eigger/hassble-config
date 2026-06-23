@@ -19,35 +19,35 @@ devices:
   # Jaalee JHT — instance_mode: mac → 스캔된 MAC마다 jaalee_jht_{MAC} 엔티티 자동 생성
   # Ref: https://github.com/eigger/espcomponents/tree/master/components/jaalee_jht
   # Temp/Humidity formula: https://sensor.jaalee.com/scan_api.html
-  - id: jaalee_jht
-    name: "Jaalee JHT"
-    source: advertisement
-    instance_mode: mac
-    match:
-      manufacturer_id: 76           # Apple Inc. (0x004C) — decimal 사용 필수 (hex 0x... 파싱 불안정)
-      manufacturer_min_length: 24
-      manufacturer_hex_prefix: "0215"  # iBeacon 타입 마커 (0x02=subtype, 0x15=length 21)
-    sensors:
-      - key: temperature
-        device_class: temperature
-        unit: "°C"
-        state_class: measurement
-        accuracy_decimals: 2
-        source_field: manufacturer_data
-        decode: { offset: 18, length: 2, type: uint16, endian: big, scale: 0.002670288, offset_value: -45 }
-      - key: humidity
-        device_class: humidity
-        unit: "%"
-        state_class: measurement
-        accuracy_decimals: 2
-        source_field: manufacturer_data
-        decode: { offset: 20, length: 2, type: uint16, endian: big, scale: 0.001524504 }
-      - key: battery
-        device_class: battery
-        unit: "%"
-        state_class: measurement
-        source_field: manufacturer_data
-        decode: { offset: 23, length: 1, type: uint8 }
+  #- id: jaalee_jht
+  #  name: "Jaalee JHT"
+  #  source: advertisement
+  #  instance_mode: mac
+  #  match:
+  #    manufacturer_id: 76           # Apple Inc. (0x004C) — decimal 사용 필수 (hex 0x... 파싱 불안정)
+  #    manufacturer_min_length: 24
+  #    manufacturer_hex_prefix: "0215"  # iBeacon 타입 마커 (0x02=subtype, 0x15=length 21)
+  #  sensors:
+  #    - key: temperature
+  #      device_class: temperature
+  #      unit: "°C"
+  #      state_class: measurement
+  #      accuracy_decimals: 2
+  #      source_field: manufacturer_data
+  #      decode: { offset: 18, length: 2, type: uint16, endian: big, scale: 0.002670288, offset_value: -45 }
+  #    - key: humidity
+  #      device_class: humidity
+  #      unit: "%"
+  #      state_class: measurement
+  #      accuracy_decimals: 2
+  #      source_field: manufacturer_data
+  #      decode: { offset: 20, length: 2, type: uint16, endian: big, scale: 0.001524504 }
+  #    - key: battery
+  #      device_class: battery
+  #      unit: "%"
+  #      state_class: measurement
+  #      source_field: manufacturer_data
+  #      decode: { offset: 23, length: 1, type: uint8 }
 
   # Parking beacon — instance_mode: shared → MAC 무관, manufacturer 0x035D 광고가 하나의 엔티티 공유
   # payload 14바이트: [7..10]=월·일·시·분, [11]=배터리(역산), [12..13]=코드
@@ -63,10 +63,7 @@ devices:
         source_field: manufacturer_data
         min_length: 14
         decode: { offset: 7, length: 4, type: timestamp }
-      - key: parking_battery
-        device_class: battery
-        unit: "%"
-        state_class: measurement
+      - key: parking_floor
         source_field: manufacturer_data
         min_length: 14
         decode: { offset: 11, length: 1, type: uint8, scale: -1, offset_value: 256 }
@@ -95,13 +92,13 @@ devices:
         - "ATH0"
         - "ATSP6"
     sensors:
-      - { key: rpm,          preset: rpm,                 update_interval: 1s }
-      - { key: speed,        preset: speed,               update_interval: 1s }
-      - { key: engine_load,  preset: engine_load,         update_interval: 1s }
-      - { key: throttle,     preset: throttle,            update_interval: 1s }
-      - { key: coolant_temp, preset: coolant_temp,        update_interval: 10s }
-      - { key: intake_temp,  preset: intake_air_temp,     update_interval: 10s }
-      - { key: ambient_temp, preset: ambient_temp,        update_interval: 30s }
+      #- { key: rpm,          preset: rpm,                 update_interval: 1s }
+      #- { key: speed,        preset: speed,               update_interval: 1s }
+      #- { key: engine_load,  preset: engine_load,         update_interval: 1s }
+      #- { key: throttle,     preset: throttle,            update_interval: 1s }
+      #- { key: coolant_temp, preset: coolant_temp,        update_interval: 10s }
+      #- { key: intake_temp,  preset: intake_air_temp,     update_interval: 10s }
+      #- { key: ambient_temp, preset: ambient_temp,        update_interval: 30s }
       - { key: battery,      preset: battery_voltage,     update_interval: 10s }
       - { key: run_time,     preset: run_time,            update_interval: 5s }
       - { key: odometer,     preset: odometer,            update_interval: 30s }
@@ -112,29 +109,29 @@ devices:
           deadband: 0.5
           min_interval: 60s
       # GM Extensions (mode 22)
-      - { key: gear,         preset: gm_current_gear,     update_interval: 1s }
-      - { key: prnd,         preset: gm_prnd_status_alt,  update_interval: 1s }
-      - { key: torque,       preset: actual_torque,       update_interval: 1s }
-      - { key: oil_pressure, preset: gm_oil_pressure,     update_interval: 2s }
-      - { key: trans_temp,   preset: gm_trans_temp,       update_interval: 10s }
+      #- { key: gear,         preset: gm_current_gear,     update_interval: 1s }
+      #- { key: prnd,         preset: gm_prnd_status_alt,  update_interval: 1s }
+      #- { key: torque,       preset: actual_torque,       update_interval: 1s }
+      #- { key: oil_pressure, preset: gm_oil_pressure,     update_interval: 2s }
+      #- { key: trans_temp,   preset: gm_trans_temp,       update_interval: 10s }
 
   # ──────────────────────────────────────────────────────────────
   # Path B: GATT Notify & Write (Bi-directional Control)
   # ──────────────────────────────────────────────────────────────
-  - id: custom_meter
-    name: "Custom BLE Meter"
-    source: gatt_notify
-    gatt:
-      service_uuid: "ffe0"
-      notify_char_uuid: "ffe1"
-      write_char_uuid: "ffe2"
-    sensors:
-      - key: power
-        unit: "W"
-        device_class: power
-        state_class: measurement
-        decode: { offset: 0, length: 2, type: uint16, endian: little }
-    controls:
-      - key: relay
-        type: switch
-        command: { on: "A10100", off: "A10000" }
+  #- id: custom_meter
+  #  name: "Custom BLE Meter"
+  #  source: gatt_notify
+  #  gatt:
+  #    service_uuid: "ffe0"
+  #    notify_char_uuid: "ffe1"
+  #    write_char_uuid: "ffe2"
+  #  sensors:
+  #    - key: power
+  #      unit: "W"
+  #      device_class: power
+  #      state_class: measurement
+  #      decode: { offset: 0, length: 2, type: uint16, endian: little }
+  #  controls:
+  #    - key: relay
+  #      type: switch
+  #      command: { on: "A10100", off: "A10000" }
