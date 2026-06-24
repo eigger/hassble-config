@@ -60,16 +60,19 @@ devices:
     sensors:
       - key: parking_time
         device_class: timestamp
+        icon: mdi:clock-time-four-outline
         source_field: manufacturer_data
         min_length: 14
         decode: { offset: 7, length: 4, type: timestamp }
       - key: parking_floor
+        icon: mdi:layers-outline
         source_field: manufacturer_data
         min_length: 14
         accuracy_decimals: 0
         decode: { offset: 11, length: 1, type: uint8, scale: -1, offset_value: 256 }
       - key: parking_location
         platform: text_sensor
+        icon: mdi:map-marker-outline
         source_field: manufacturer_data
         min_length: 14
         decode: { offset: 12, length: 2, type: string }
