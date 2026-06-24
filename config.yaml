@@ -67,13 +67,12 @@ devices:
         source_field: manufacturer_data
         min_length: 14
         accuracy_decimals: 0
-        state_class: none
+        state_class: measurement
         decode: { offset: 11, length: 1, type: uint8, scale: -1, offset_value: 256 }
       - key: parking_location
         platform: text_sensor
         source_field: manufacturer_data
         min_length: 14
-        state_class: none
         decode: { offset: 12, length: 2, type: string }
 
   # ──────────────────────────────────────────────────────────────
