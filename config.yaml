@@ -1,9 +1,10 @@
 # HassBle Configuration File
-# 
-# Host this config.yaml file in a Git repository (e.g., GitHub) and enter the RAW URL in the HassBle Android app.
-# The app will download this configuration, decode BLE advertisements/sensors, and declare/update them in Home Assistant.
 #
-# Do NOT put any Home Assistant credentials (URL/Token) in this file. Enter them directly in the app.
+# Host config.yaml and templates.yaml in a Git repository (e.g., GitHub).
+# In the HassBle app: enter owner/repo and branch (e.g. eigger/hassble-config, main).
+# The app loads config.yaml for the gateway and templates.yaml for Import template.
+#
+# Do NOT put any Home Assistant credentials (URL/Token) in this file. Enter them in the app.
 
 version: 1
 

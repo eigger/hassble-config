@@ -1,0 +1,133 @@
+# Device templates for HassBle app → Sensors tab → Import template
+# Loaded from repo root as templates.yaml (same branch as config.yaml)
+
+templates:
+  - id: jaalee_jht
+    name: "Jaalee JHT"
+    description: "Temperature / humidity / battery (iBeacon, Apple manufacturer 76)"
+    device:
+      id: jaalee_jht
+      name: "Jaalee JHT"
+      source: advertisement
+      instance_mode: mac
+      match:
+        manufacturer_id: 76
+        manufacturer_min_length: 24
+        manufacturer_hex_prefix: "0215"
+      sensors:
+        - key: temperature
+          device_class: temperature
+          unit: "°C"
+          state_class: measurement
+          accuracy_decimals: 2
+          source_field: manufacturer_data
+          decode: { offset: 18, length: 2, type: uint16, endian: big, scale: 0.002670288, offset_value: -45 }
+        - key: humidity
+          device_class: humidity
+          unit: "%"
+          state_class: measurement
+          accuracy_decimals: 2
+          source_field: manufacturer_data
+          decode: { offset: 20, length: 2, type: uint16, endian: big, scale: 0.001524504 }
+        - key: battery
+          device_class: battery
+          unit: "%"
+          state_class: measurement
+          source_field: manufacturer_data
+          decode: { offset: 23, length: 1, type: uint8 }
+
+  - id: parking_beacon
+    name: "Parking Beacon"
+    description: "Shared parking beacon (manufacturer 861 / 0x035D)"
+    device:
+      id: parking_beacon
+      name: "Parking Beacon"
+      source: advertisement
+      instance_mode: shared
+      match:
+        manufacturer_id: 861
+      sensors:
+        - key: parking_time
+          device_class: timestamp
+          source_field: manufacturer_data
+          min_length: 14
+          decode: { offset: 7, length: 4, type: timestamp }
+        - key: parking_battery
+          device_class: battery
+          unit: "%"
+          state_class: measurement
+          source_field: manufacturer_data
+          min_length: 14
+          decode: { offset: 11, length: 1, type: uint8, scale: -1, offset_value: 256 }
+        - key: parking_location
+          platform: text_sensor
+          source_field: manufacturer_data
+          min_length: 14
+          decode: { offset: 12, length: 2, type: string }
+
+  - id: obd_standard
+    name: "OBD-II (standard PIDs)"
+    description: "RPM, speed, coolant, fuel — bind ELM327 adapter in app"
+    device:
+      id: obd_vehicle
+      name: "OBD Vehicle"
+      source: obd
+      obd:
+        service_uuid: "FFF0"
+        tx_char_uuid: "FFF2"
+        rx_char_uuid: "FFF1"
+        tx_delay: 50ms
+        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0"]
+      sensors:
+        - { key: rpm, preset: rpm, update_interval: 1s }
+        - { key: speed, preset: speed, update_interval: 1s }
+        - { key: coolant_temp, preset: coolant_temp, update_interval: 10s }
+        - { key: fuel_level, preset: fuel_level, update_interval: 30s }
+
+  - id: obd_gm_extended
+    name: "OBD-II + GM extensions"
+    description: "Standard PIDs plus GM mode-22 sensors (ATSP6 init)"
+    device:
+      id: car_obd
+      name: "Vehicle OBD"
+      source: obd
+      obd:
+        service_uuid: "18F0"
+        tx_char_uuid: "2AF1"
+        rx_char_uuid: "2AF0"
+        tx_delay: 50ms
+        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP6"]
+      sensors:
+        - { key: rpm, preset: rpm, update_interval: 1s }
+        - { key: speed, preset: speed, update_interval: 1s }
+        - { key: coolant_temp, preset: coolant_temp, update_interval: 10s }
+        - key: fuel_level
+          preset: fuel_level
+          update_interval: 30s
+          publish: { deadband: 0.5, min_interval: 60s }
+        - { key: gear, preset: gm_current_gear, update_interval: 1s }
+        - { key: prnd, preset: gm_prnd_status_alt, update_interval: 1s }
+        - { key: oil_pressure, preset: gm_oil_pressure, update_interval: 2s }
+        - { key: trans_temp, preset: gm_trans_temp, update_interval: 10s }
+
+  - id: gatt_meter_relay
+    name: "GATT power meter + relay"
+    description: "Notify characteristic + switch control example"
+    device:
+      id: custom_meter
+      name: "Custom BLE Meter"
+      source: gatt_notify
+      gatt:
+        service_uuid: "ffe0"
+        notify_char_uuid: "ffe1"
+        write_char_uuid: "ffe2"
+      sensors:
+        - key: power
+          unit: "W"
+          device_class: power
+          state_class: measurement
+          decode: { offset: 0, length: 2, type: uint16, endian: little }
+      controls:
+        - key: relay
+          type: switch
+          command: { on: "A10100", off: "A10000" }

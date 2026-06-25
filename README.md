@@ -29,9 +29,23 @@
 
 ---
 
+## Repository files
+
+| File | Purpose |
+|------|---------|
+| `config.yaml` | Active gateway configuration (devices the app runs) |
+| `templates.yaml` | Device templates for **Import template** in the Sensors tab |
+
+The app loads both from the repo root on the selected branch (`owner/repo` + branch — file names are fixed).
+
 ## How It Works
 
-The HassBle app downloads your `config.yaml` from a Git raw URL, decodes BLE data according to the rules you define, and automatically declares sensors in Home Assistant via the [ws_bridge](https://github.com/eigger/hass-ws-bridge) integration. No code changes are needed — just edit YAML and push.
+The HassBle app downloads `config.yaml` and `templates.yaml` from this repository (fixed file names at repo root), decodes BLE data according to the rules you define, and automatically declares sensors in Home Assistant via the [ws_bridge](https://github.com/eigger/hass-ws-bridge) integration. No code changes are needed — just edit YAML and push.
+
+Raw URLs (branch `main`):
+
+- Config: `https://raw.githubusercontent.com/eigger/hassble-config/main/config.yaml`
+- Templates: `https://raw.githubusercontent.com/eigger/hassble-config/main/templates.yaml`
 
 ```
 Android Phone (BLE Scan)
@@ -51,8 +65,8 @@ Android Phone (BLE Scan)
 ## Quick Start
 
 1. Fork or copy this repository to your GitHub account.
-2. Edit `config.yaml` to describe your BLE devices.
-3. In the HassBle app → **Sensors tab** → enter `your-username/hassble-config` → press **Browse** → select `config.yaml`.
+2. Edit `config.yaml` to describe your BLE devices. Optionally add device blocks to `templates.yaml` for **Import template** in the app.
+3. In the HassBle app → **Sensors tab** → enter `your-username/hassble-config` and branch `main` (loads `config.yaml` + `templates.yaml` automatically).
 4. In the **Gateway tab**, enter your HA URL and token (or use OAuth login), then start the gateway.
 5. In the **Sensors tab**, enable the sensors you want and they will appear in Home Assistant.
 
