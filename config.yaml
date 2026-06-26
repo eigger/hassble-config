@@ -90,11 +90,6 @@ devices:
       rx_char_uuid: "2AF0"
       tx_delay: 50ms
       init_commands:
-        - "ATZ"
-        - "ATE0"
-        - "ATL0"
-        - "ATS0"
-        - "ATH0"
         - "ATSP6"
     sensors:
       #- { key: rpm,          preset: rpm,                 update_interval: 1s }

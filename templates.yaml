@@ -78,7 +78,7 @@ templates:
         tx_char_uuid: "FFF2"
         rx_char_uuid: "FFF1"
         tx_delay: 50ms
-        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0"]
+        init_commands: []
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
@@ -97,7 +97,7 @@ templates:
         tx_char_uuid: "2AF1"
         rx_char_uuid: "2AF0"
         tx_delay: 50ms
-        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP6"]
+        init_commands: ["ATSP6"]
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
