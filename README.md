@@ -2,7 +2,7 @@
 
 > This repository stores the device configuration (`config.yaml`) for the [HassBle](https://github.com/eigger/hassble-android) Android app.
 
-**[한국어 문서 → README.ko.md](README.ko.md)**
+**[한국어 문서 → README.ko.md](README.ko.md) | [Contributing Guide → CONTRIBUTING.md](CONTRIBUTING.md)**
 
 ---
 
@@ -26,6 +26,7 @@
 12. [OBD Preset List](#obd-preset-list)
 13. [Full Examples](#full-examples)
 14. [Tips & Gotchas](#tips--gotchas)
+15. [Contributing](#contributing)
 
 ---
 
@@ -709,6 +710,12 @@ update_interval: 1s
 ### Config is cached
 
 The app caches the last successfully loaded config. If the network is unavailable on startup, it uses the cache. The app always shows "Using cached config" in the header when this happens.
+
+---
+
+## Contributing
+
+We welcome your vehicle OBD-II PID configurations! Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > 이 저장소는 [HassBle](https://github.com/eigger/hassble-android) Android 앱의 기기 설정 파일(`config.yaml`)을 저장합니다.
 
-**[English Documentation → README.md](README.md)**
+**[English Documentation → README.md](README.md) | [기여 가이드 → CONTRIBUTING.ko.md](CONTRIBUTING.ko.md)**
 
 ---
 
@@ -26,6 +26,7 @@
 12. [OBD 프리셋 목록](#obd-프리셋-목록)
 13. [전체 예제](#전체-예제)
 14. [주의사항](#주의사항)
+15. [기여하기](#기여하기)
 
 ---
 
@@ -714,6 +715,12 @@ update_interval: 1s
 ### 설정은 캐시됨
 
 앱은 마지막으로 성공적으로 불러온 설정을 캐시합니다. 시작 시 네트워크가 없으면 캐시를 사용합니다. 이 경우 앱 상단에 "캐시된 설정 사용 중"이 표시됩니다.
+
+---
+
+## 기여하기
+
+본인 차량의 OBD-II PID 설정을 공유해 주시면 다른 사용자들에게 큰 도움이 됩니다! 자세한 공유 및 기여 방법은 [기여 가이드(CONTRIBUTING.ko.md)](CONTRIBUTING.ko.md)를 참고해 주세요.
 
 ---
 
