@@ -50,13 +50,15 @@ devices:
   #      decode: { offset: 23, length: 1, type: uint8 }
 
   # Parking beacon — instance_mode: shared → MAC 무관, manufacturer 0x035D 광고가 하나의 엔티티 공유
-  # payload 14바이트: [7..10]=월·일·시·분, [11]=배터리(역산), [12..13]=코드
+  # payload 14바이트: [0]=04(응답타입), [1..6]=KeyMAC, [7..10]=월·일·시·분, [11]=층(256-raw), [12..13]=구역코드
+  # 04xx: 주차위치 응답 비콘, 07xx: SmartKey 인증(22B 암호화), 02xx: 출입 이벤트(6B) — prefix "04" 로 응답만 매칭
   - id: parking_beacon
     name: "Parking Beacon"
     source: advertisement
     instance_mode: shared
     match:
-      manufacturer_id: 861       # 0x035D
+      manufacturer_id: 861            # 0x035D
+      manufacturer_hex_prefix: "04"   # 응답 비콘만 매칭 (07=SmartKey 인증, 02=출입 이벤트 제외)
     sensors:
       - key: parking_time
         device_class: timestamp
