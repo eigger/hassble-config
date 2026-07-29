@@ -113,7 +113,7 @@ templates:
 
   - id: obd_hyundai_kia
     name: "OBD-II + 현대/기아 확장"
-    description: "RPM, 속도, 연료잔량%, 총 주행거리 (ATSH7E0 헤더 고정)"
+    description: "RPM, 속도, 연료잔량%, 총 주행거리 (ATSH7E0 init 설정)"
     device:
       id: car_obd_hk
       name: "Hyundai/Kia OBD"
@@ -125,18 +125,11 @@ templates:
         tx_delay: 50ms
         init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP6", "ATSH7E0"]
       sensors:
-        - key: rpm
-          preset: rpm
-          pre_commands: ["ATSH7E0"]
-          update_interval: 1s
-        - key: speed
-          preset: speed
-          pre_commands: ["ATSH7E0"]
-          update_interval: 1s
+        - { key: rpm, preset: rpm, update_interval: 1s }
+        - { key: speed, preset: speed, update_interval: 1s }
         - key: fuel_level_hk
           mode: "22"
           pid: "303E"
-          pre_commands: ["ATSH7E0"]
           formula: "a-100"
           unit: "%"
           state_class: measurement
@@ -145,7 +138,6 @@ templates:
         - key: odometer_hk
           mode: "22"
           pid: "F22E"
-          pre_commands: ["ATSH7E0"]
           formula: "(((a*256*256*256)+b*256*256)+c*256)+d"
           unit: "km"
           device_class: distance
