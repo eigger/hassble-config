@@ -111,6 +111,35 @@ templates:
         - { key: oil_pressure, preset: gm_oil_pressure, update_interval: 2s }
         - { key: trans_temp, preset: gm_trans_temp, update_interval: 10s }
 
+  - id: obd_hyundai_kia
+    name: "OBD-II + 현대/기아 확장"
+    description: "RPM, 속도, 연료잔량%, 총 주행거리 (ATSP6 헤더 설정)"
+    device:
+      id: car_obd_hk
+      name: "Hyundai/Kia OBD"
+      source: obd
+      obd:
+        service_uuid: "18F0"
+        tx_char_uuid: "2AF1"
+        rx_char_uuid: "2AF0"
+        tx_delay: 50ms
+        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP6"]
+      sensors:
+        - { key: rpm, preset: rpm, update_interval: 1s }
+        - { key: speed, preset: speed, update_interval: 1s }
+        - key: fuel_level
+          preset: fuel_level
+          update_interval: 30s
+          publish: { deadband: 0.5, min_interval: 60s }
+        - key: odometer_hk
+          mode: "22"
+          pid: "F22E"
+          formula: "(((a*256*256*256)+b*256*256)+c*256)+d"
+          unit: "km"
+          device_class: distance
+          state_class: total_increasing
+          update_interval: 30s
+
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
     description: "Notify characteristic + switch control example"
