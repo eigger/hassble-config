@@ -130,18 +130,25 @@ templates:
         # 연료 잔량 (%)
         - key: fuel_level
           preset: fuel_level
-          update_interval: 30s
+          update_interval: 1s
         - key: fuel_level_ext
           mode: "22"
           pid: "002F"
           formula: "a/2.55"
           unit: "%"
           state_class: measurement
-          update_interval: 30s
+          update_interval: 1s
+        - key: fuel_level_303e
+          mode: "22"
+          pid: "303E"
+          formula: "a-100"
+          unit: "%"
+          state_class: measurement
+          update_interval: 1s
         # 총 주행거리 (km)
         - key: odometer
           preset: odometer
-          update_interval: 30s
+          update_interval: 1s
         - key: odometer_ed03
           mode: "22"
           pid: "ED03"
@@ -149,7 +156,7 @@ templates:
           unit: "km"
           device_class: distance
           state_class: total_increasing
-          update_interval: 30s
+          update_interval: 1s
         - key: odometer_f22e
           mode: "22"
           pid: "F22E"
@@ -157,7 +164,15 @@ templates:
           unit: "km"
           device_class: distance
           state_class: total_increasing
-          update_interval: 30s
+          update_interval: 1s
+        - key: odometer_2103
+          mode: "21"
+          pid: "03"
+          formula: "(((a*65536)+b*256)+c)*0.256"
+          unit: "km"
+          device_class: distance
+          state_class: total_increasing
+          update_interval: 1s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
