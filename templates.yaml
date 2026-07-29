@@ -113,7 +113,7 @@ templates:
 
   - id: obd_hyundai_kia
     name: "OBD-II + 현대/기아 확장"
-    description: "RPM, 속도, 연료잔량%, 총 주행거리"
+    description: "RPM, 속도, 연료잔량%, 총 주행거리 (표준 & 현대/기아 PID)"
     device:
       id: car_obd_hk
       name: "Hyundai/Kia OBD"
@@ -127,15 +127,30 @@ templates:
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
-        - key: fuel_level_hk
+        # 연료 잔량 (%)
+        - key: fuel_level
+          preset: fuel_level
+          update_interval: 30s
+        - key: fuel_level_ext
           mode: "22"
           pid: "002F"
-          formula: "a*0.392157"
+          formula: "a/2.55"
           unit: "%"
           state_class: measurement
           update_interval: 30s
-          publish: { deadband: 0.5, min_interval: 60s }
-        - key: odometer_hk
+        # 총 주행거리 (km)
+        - key: odometer
+          preset: odometer
+          update_interval: 30s
+        - key: odometer_ed03
+          mode: "22"
+          pid: "ED03"
+          formula: "(((a*65536)+b*256)+c)*0.256"
+          unit: "km"
+          device_class: distance
+          state_class: total_increasing
+          update_interval: 30s
+        - key: odometer_f22e
           mode: "22"
           pid: "F22E"
           formula: "(((a*256*256*256)+b*256*256)+c*256)+d"
