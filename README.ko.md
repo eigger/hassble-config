@@ -288,6 +288,7 @@ BLE ELM327 어댑터에 연결하여 OBD-II(및 GM mode 22) PID 명령을 전송
 | `rx_char_uuid` | string | `"FFF1"` | 알림 캐릭터리스틱 (응답 수신). |
 | `tx_delay` | duration | `50ms` | 연속 명령 사이 딜레이. |
 | `init_commands` | list | `[]` | 폴링 시작 전 연결마다 한 번 전송하는 초기 명령. |
+| `default_commands` | list | 자동 | `pre_commands`가 없는 센서를 폴링하기 직전에 보낼 명령. 보통 생략하면 됨 — 아래 "헤더 복원" 참고. |
 | `auto_connect` | bool | `true` | 연결 끊김 시 자동 재연결. |
 
 **OBD 센서 전용 필드:**
@@ -297,9 +298,33 @@ BLE ELM327 어댑터에 연결하여 OBD-II(및 GM mode 22) PID 명령을 전송
 | `preset` | string | 내장 프리셋 사용 (아래 표 참조). |
 | `mode` | string | OBD 모드. `"01"`=표준, `"22"`=제조사 확장. 기본 `"01"`. |
 | `pid` | string | PID hex 코드. 예: `"0C"`, `"199A"`. |
-| `formula` | string | 수식. `a`,`b`,`c`,`d`는 응답 바이트. 예: `"(a*256+b)/4"`. |
+| `formula` | string | 수식. `a`~`t`가 응답의 0~19번째 바이트. 예: `"(a*256+b)/4"`. 응답이 짧아 식에 쓴 바이트가 없으면 그 주기는 발행하지 않음. |
 | `update_interval` | duration | 이 PID를 폴링하는 간격. 기본 `60s`. |
 | `pre_commands` | list | 이 PID 전에 전송할 추가 명령 (예: GM 헤더 전환). |
+
+### 헤더 복원 (ATSH)
+
+ELM327의 전송 헤더는 **한 번 바꾸면 계속 유지**됩니다. 그래서 `pre_commands: ["ATSH7C6"]` 같은
+센서 뒤에 `pre_commands`가 없는 표준 센서(rpm, speed 등)가 폴링되면, 그 요청까지 7C6으로 나가
+`NO DATA`가 됩니다.
+
+앱이 이를 자동으로 처리합니다. **한 센서라도 `pre_commands`에 `ATSH`를 쓰면**, `pre_commands`가
+없는 센서 앞에 헤더 복원 명령을 자동으로 넣습니다. 복원할 헤더는 이 순서로 정해집니다:
+
+1. `default_commands` — 명시했다면 이 값
+2. `init_commands`의 마지막 `ATSH…`
+3. `ATSH7DF` — ELM327의 11bit CAN 기본 헤더
+
+`ATSH`를 쓰는 센서가 하나도 없으면 아무것도 보내지 않습니다. K-line(ISO 9141 / KWP)처럼 헤더
+형식이 다른 프로토콜에 `ATSH7DF`를 밀어넣지 않기 위한 것입니다.
+
+즉 **보통은 `default_commands`를 생략**하면 되고, 복원 헤더를 직접 지정해야 할 때만 씁니다:
+
+```yaml
+obd:
+  init_commands: ["ATSP6"]
+  default_commands: ["ATSH7E0"]   # 브로드캐스트(7DF) 대신 엔진 ECU 직접 지정
+```
 
 ---
 

@@ -112,8 +112,8 @@ templates:
         - { key: trans_temp, preset: gm_trans_temp, update_interval: 10s }
 
   - id: obd_hyundai_kia
-    name: "OBD-II + 현대/기아 확장"
-    description: "RPM, 속도, 연료잔량%, 총 주행거리 (표준 & 현대/기아 PID)"
+    name: "OBD-II + 현대/기아 계기판"
+    description: "RPM, 속도, 총 주행거리, 연료잔량(L), 계기판 전압 — 계기판 7C6 / 22B002"
     device:
       id: car_obd_hk
       name: "Hyundai/Kia OBD"
@@ -124,55 +124,51 @@ templates:
         rx_char_uuid: "2AF0"
         tx_delay: 50ms
         init_commands: ["ATSP6"]
+        # default_commands 생략 — 아래 ATSH7C6 센서가 있으므로 앱이 ATSH7DF로 자동 복원
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
-        # 연료 잔량 (%)
-        - key: fuel_level
-          preset: fuel_level
-          update_interval: 1s
-        - key: fuel_level_ext
-          mode: "22"
-          pid: "002F"
-          formula: "a/2.55"
-          unit: "%"
-          state_class: measurement
-          update_interval: 1s
-        - key: fuel_level_303e
-          mode: "22"
-          pid: "303E"
-          formula: "a-100"
-          unit: "%"
-          state_class: measurement
-          update_interval: 1s
-        # 총 주행거리 (km)
+        # 계기판(CLU) UDS. 한 응답에 주행거리·연료·전압이 함께 담겨 온다.
+        # 응답: 62 B0 02 [a][b][c][d][e][f][g][h][i]…  (a = 62B002 에코 다음 바이트)
+        #   e       → 연료잔량   e*0.5 L
+        #   f       → 계기판 전압 f*0.078125 V
+        #   g:h:i   → 총 주행거리 24bit km
+        # 2013년식 이후 현대·기아·제네시스에서 널리 동작. 미지원 차는 NO DATA.
+        # 일부 기아는 주행거리가 i:j:k:l(32bit)로 밀려 있다는 보고가 있음.
+        # 값이 이상하면 formula를 "i*16777216+j*65536+k*256+l" 로 바꿔볼 것.
         - key: odometer
-          preset: odometer
-          update_interval: 1s
-        - key: odometer_ed03
           mode: "22"
-          pid: "ED03"
-          formula: "(((a*65536)+b*256)+c)*0.256"
+          pid: "B002"
+          pre_commands: ["ATSH7C6"]
+          formula: "g*65536+h*256+i"
           unit: "km"
           device_class: distance
           state_class: total_increasing
-          update_interval: 1s
-        - key: odometer_f22e
+          accuracy_decimals: 0
+          icon: mdi:counter
+          update_interval: 60s
+        - key: fuel_level
           mode: "22"
-          pid: "F22E"
-          formula: "(((a*256*256*256)+b*256*256)+c*256)+d"
-          unit: "km"
-          device_class: distance
-          state_class: total_increasing
-          update_interval: 1s
-        - key: odometer_2103
-          mode: "21"
-          pid: "03"
-          formula: "(((a*65536)+b*256)+c)*0.256"
-          unit: "km"
-          device_class: distance
-          state_class: total_increasing
-          update_interval: 1s
+          pid: "B002"
+          pre_commands: ["ATSH7C6"]
+          formula: "e*0.5"
+          unit: "L"
+          state_class: measurement
+          accuracy_decimals: 1
+          icon: mdi:gas-station
+          update_interval: 30s
+          publish: { deadband: 0.5, min_interval: 60s }
+        - key: cluster_voltage
+          mode: "22"
+          pid: "B002"
+          pre_commands: ["ATSH7C6"]
+          formula: "f*0.078125"
+          unit: "V"
+          device_class: voltage
+          state_class: measurement
+          accuracy_decimals: 2
+          entity_category: diagnostic
+          update_interval: 60s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"

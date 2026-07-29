@@ -288,6 +288,7 @@ Connects to an ELM327 BLE adapter, sends OBD-II (and GM mode 22) PID commands, a
 | `rx_char_uuid` | string | `"FFF1"` | Notify characteristic (receive responses). |
 | `tx_delay` | duration | `50ms` | Delay between consecutive commands. |
 | `init_commands` | list | `[]` | Commands sent once on each connection before polling starts. |
+| `default_commands` | list | auto | Commands sent before polling any sensor that has no `pre_commands`. Usually omit it — see "Header restore" below. |
 | `auto_connect` | bool | `true` | Automatically reconnect on disconnect. |
 
 **OBD sensor-specific fields:**
@@ -297,9 +298,34 @@ Connects to an ELM327 BLE adapter, sends OBD-II (and GM mode 22) PID commands, a
 | `preset` | string | Use a built-in preset (see table below). |
 | `mode` | string | OBD mode. `"01"` = standard, `"22"` = manufacturer specific. Default `"01"`. |
 | `pid` | string | PID hex code (without mode prefix). E.g. `"0C"`, `"199A"`. |
-| `formula` | string | Math expression. Variables `a`,`b`,`c`,`d` are response bytes. E.g. `"(a*256+b)/4"`. |
+| `formula` | string | Math expression. Variables `a`–`t` are response bytes 0–19. E.g. `"(a*256+b)/4"`. If the response is too short to bind a byte used in the expression, nothing is published for that poll. |
 | `update_interval` | duration | How often to poll this PID. Default `60s`. |
 | `pre_commands` | list | Extra AT/OBD commands to send before this PID (e.g., header switch for GM). |
+
+### Header restore (ATSH)
+
+An ELM327 transmit header **stays in effect once set**. So a sensor with
+`pre_commands: ["ATSH7C6"]` leaves the header pointing at the cluster, and the next standard
+sensor (rpm, speed, …) that has no `pre_commands` gets sent there too — returning `NO DATA`.
+
+The app handles this automatically. **If any sensor uses `ATSH` in `pre_commands`**, a restore
+command is inserted before every sensor that has no `pre_commands`. The header to restore is
+chosen in this order:
+
+1. `default_commands`, if you set it
+2. the last `ATSH…` in `init_commands`
+3. `ATSH7DF` — the ELM327 default header for 11-bit CAN
+
+If no sensor uses `ATSH`, nothing is sent. This avoids pushing `ATSH7DF` onto protocols with a
+different header format, such as K-line (ISO 9141 / KWP).
+
+So you can normally **omit `default_commands`**; set it only to pin a specific restore header:
+
+```yaml
+obd:
+  init_commands: ["ATSP6"]
+  default_commands: ["ATSH7E0"]   # address the engine ECU instead of broadcasting to 7DF
+```
 
 ---
 
