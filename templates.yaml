@@ -123,7 +123,7 @@ templates:
         tx_char_uuid: "2AF1"
         rx_char_uuid: "2AF0"
         tx_delay: 50ms
-        init_commands: ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP6", "ATSH7E0"]
+        init_commands: ["ATSP6", "ATSH7E0"]
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
