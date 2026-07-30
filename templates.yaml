@@ -290,12 +290,16 @@ templates:
         # 실제로 7E0.2103 이 거기서는 unsupported 인데 이 차에서는 동작한다.
         # 그래서 아래 후보들은 캡처로 배제하지 않고 실차에서 직접 확인한다.
         #
-        # 전부 읽기 전용 요청(service 01/21/22)이다. 값은 쓰지 않고 응답 유무와
-        # raw hex 확보가 목적이므로 formula 는 첫 바이트만 본다.
+        # 아래 세 개는 아직 바이트 배치가 알려지지 않은 블록이다. awesomeit(2000여 개
+        # 차량 설정)에도 OBDb 에도 7C6 에는 22B002 하나뿐이라 참고할 공식이 없다.
+        # 그래서 formula 는 "a" — 값 자체는 의미가 없고, 요청을 내보내 로그에
+        # raw hex 를 남기는 것이 목적이다. hex 를 보고 나서 실제 공식을 쓴다.
+        # 전부 읽기 전용 요청(service 21/22)이라 차에 영향이 없다.
+        #
         # 로그에서 확인할 것:
-        #   raw=61xx… / 62xx…  → 응답함. hex 전체를 뜨면 오도미터 위치를 찾을 수 있다.
+        #   raw=61xx… / 62xx…  → 응답함. hex 전체에서 195958 근처 값을 찾으면 된다
         #   NO DATA            → 미지원
-        #   negative response  → 존재하지만 거부 (NRC 확인)
+        #   negative response  → 존재하지만 거부 (NRC 로 이유 확인)
 
         # 계기판 mode 21 블록. 7C6 은 22B002 를 거부하면서도 응답 자체는 하므로
         # ECU 는 살아 있다. 계기판 값을 얻을 가능성이 가장 높은 후보다.
@@ -306,7 +310,7 @@ templates:
           formula: "a"
           entity_category: diagnostic
           update_interval: 60s
-        # B002 인접 DID. awesomeit·OBDb 어디에도 기록이 없어 순수 탐색이다.
+        # B002 인접 DID. 순수 탐색이다.
         - key: probe_7c6_22b001
           mode: "22"
           pid: "B001"
@@ -321,23 +325,68 @@ templates:
           formula: "a"
           entity_category: diagnostic
           update_interval: 60s
-        # 변속기(TCU). awesomeit 엑센트RB 프로필이 21A0 @ 7E1 에서 기어단수·미션오일온도를
-        # 읽으므로 이 블록은 이 차에 존재한다. 엔진과 독립된 카운터를 가질 수 있다.
-        - key: probe_7e1_21a0
+        # 표준 오도미터 PID (SAE J1979). 2013 엑센트의 mode 01 지원 목록이 0145 에서
+        # 끊겨 가능성은 낮지만, 되면 그대로 계기판 값이다. 공식은 표준이라 확정이다.
+        - key: odometer_standard
+          preset: odometer
+          entity_category: diagnostic
+          update_interval: 60s
+
+        # ── 변속기(TCU) 21A0 @ 7E1 ────────────────────────────────────────
+        # awesomeit 엑센트RB 2013 D 1.6 TCI-U2 프로필의 공식 그대로다. 이 블록이
+        # 이 차에 존재한다는 뜻이므로 프로브가 아니라 실센서로 넣는다.
+        # 응답하면 오도미터 탐색용 raw hex 도 같이 확보된다.
+        #   N(byte 13) 미션오일온도,  U(byte 20) 기어위치,  V(byte 21) 기어단수
+        - key: trans_oil_temp
           mode: "21"
           pid: "A0"
           pre_commands: ["ATSH7E1"]
-          formula: "a"
-          entity_category: diagnostic
-          update_interval: 60s
-        # 표준 오도미터 PID. 2013 엑센트의 mode 01 지원 목록이 0145 에서 끊겨
-        # 가능성은 낮지만, 되면 그대로 계기판 값이라 한 번은 확인할 가치가 있다.
-        - key: probe_01a6
-          mode: "01"
-          pid: "A6"
-          formula: "a"
-          entity_category: diagnostic
-          update_interval: 60s
+          formula: "n-40"
+          unit: "°C"
+          device_class: temperature
+          state_class: measurement
+          accuracy_decimals: 1
+          icon: mdi:oil-temperature
+          update_interval: 10s
+        - key: gear_position
+          mode: "21"
+          pid: "A0"
+          pre_commands: ["ATSH7E1"]
+          platform: text_sensor
+          icon: mdi:car-shift-pattern
+          decode:
+            offset: 20
+            length: 1
+            type: uint8
+            map:
+              "8": "D"
+              "9": "N"
+              "10": "R"
+              "11": "P"
+              "12": "Sport"
+              "16": "E Mode"
+          update_interval: 1s
+        - key: gear
+          mode: "21"
+          pid: "A0"
+          pre_commands: ["ATSH7E1"]
+          platform: text_sensor
+          icon: mdi:numeric
+          decode:
+            offset: 21
+            length: 1
+            type: uint8
+            map:
+              "0": "P/N"
+              "1": "1"
+              "2": "2"
+              "3": "3"
+              "4": "4"
+              "5": "5"
+              "6": "6"
+              "7": "7"
+              "8": "8"
+          update_interval: 1s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
