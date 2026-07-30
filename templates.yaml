@@ -128,14 +128,16 @@ templates:
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
-        # 계기판(CLU) UDS. 한 응답에 주행거리·연료·전압이 함께 담겨 온다.
-        # 응답: 62 B0 02 [a][b][c][d][e][f][g][h][i]…  (a = 62B002 에코 다음 바이트)
-        #   e       → 연료잔량   e*0.5 L
-        #   f       → 계기판 전압 f*0.078125 V
-        #   g:h:i   → 총 주행거리 24bit km
-        # 2013년식 이후 현대·기아·제네시스에서 널리 동작. 미지원 차는 NO DATA.
-        # 일부 기아는 주행거리가 i:j:k:l(32bit)로 밀려 있다는 보고가 있음.
-        # 값이 이상하면 formula를 "i*16777216+j*65536+k*256+l" 로 바꿔볼 것.
+        # 계기판(CLU) UDS. 요청 7C6 → 응답 7CE. 한 응답에 주행거리·연료·전압이 함께 온다.
+        # 응답: 62 B0 02 [a][b][c][d][e][f][g][h][i][j][k][l]…
+        #       (a = 62B002 에코 바로 다음 바이트)
+        #   e      → 연료잔량    e*0.5 L
+        #   f      → 계기판 전압  f/12.8 = f*0.078125 V
+        #   g:h:i  → 총 주행거리  24bit km
+        #   j:k:l  → 위와 같은 주행거리의 mile 값 (북미 사양 계기판)
+        # 출처: OBDb(obdb.community)에서 현대·기아 11개 차종이 동일한 바이트 배치로 확인.
+        # awesomeit Torque 플러그인(35개 차종)·Elantra CN7 PID 목록과도 일치.
+        # 2013년식 이후에서 널리 동작하며, 미지원 차는 NO DATA를 반환한다.
         - key: odometer
           mode: "22"
           pid: "B002"
