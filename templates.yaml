@@ -218,31 +218,35 @@ templates:
           accuracy_decimals: 1
           update_interval: 30s
         # ── 총주행거리 (엔진 ECU의 DPF 블록에 같이 실려 온다) ──────────────
-        # 엑센트 RB는 계기판(7C6 / 22B002)이 주행거리를 열지 않는다 — 요청하면 7F 22 22.
-        # 대신 엔진 ECU의 21 03 블록에 있다 (OBDb 메이커 공용 HYUNDAI_ODO_V2):
+        # 엑센트 RB는 계기판(7C6 / 22B002)이 주행거리를 직접 내주지 않는다 —
+        # 요청하면 7F 22 22. 그래서 대안으로 엔진 ECU의 21 03 블록을 쓴다
+        # (OBDb 메이커 공용 HYUNDAI_ODO_V2):
         #   byte 49~52  마지막 DPF 재생 시점의 주행거리   /1000 km
         #   byte 53~56  재생 이후 달린 거리               /1000 km
         #   byte 57~60  총주행거리                        /1000 km  ← 목표
         # 셋은 서로 다른 필드다. awesomeit이 "DPF 주행거리"로 부르는 건 byte 53(재생 후 거리).
-        # 그 프로필이 같은 21 03에서 byte 53~55를 읽으므로, 이 차의 응답은 최소
-        # byte 55까지 도착한다 — 목표는 두 바이트 뒤다.
         #
         # 응답이 byte 57까지 도착하지 않으면 decode가 null을 돌려주고 아무것도
         # 발행되지 않는다 — 미지원 차에서 엉뚱한 값이 올라오지 않는다.
         #
-        # offset_value = -1436.5 는 계기판 대조 보정이다. 2026-07-30 실측에서
-        # ECU 카운터 197394.5 km, 계기판 195958 km 로 0.733% 높게 나왔다.
-        # 이 카운터는 DPF 서비스 주기용이라 법정 계기판 수치와 별개로 관리되고,
-        # 속도 신호원이 달라 장기간에 걸쳐 벌어진다.
-        # 측정이 한 번뿐이라 상수 오차인지 비례 오차인지 구분되지 않아 우선 상수로 뒀다.
-        # 100km 이상 주행 후 재확인할 것:
-        #   차이가 1436.5 그대로면 상수가 맞고, 1437.2 근처로 늘면 비례이므로
-        #   offset_value 를 빼고 scale 을 0.000992723 으로 바꾼다.
+        # 보정: 2026-07-30 실측에서 이 ECU 카운터가 계기판(195958 km)보다
+        # 0.7331% 높게(197394.5 km) 나왔다. 처음엔 상수(offset_value)로 보정했으나
+        # 신차(카운터=0)에서 dash=-1436.5km 가 나오는 게 되어 성립할 수 없다.
+        # 배율(scale) 보정은 원점을 지나므로(카운터=0 → dash=0) 물리적으로 맞다 —
+        # 이 카운터는 계기판과 별개 환산계수로 바퀴속도 펄스를 거리로 누적하는
+        # 서비스용 값이라, 오차가 주행거리에 비례해 벌어지는 게 정상이다.
+        # 세 필드가 odometer = at_regen + since_regen 항등식을 만족하려면
+        # 셋 다 같은 배율을 써야 한다 (상수 보정과 달리 since_regen도 예외 없음).
+        #
+        # 측정이 한 점뿐이라 배율만 가정했고 절편은 0으로 뒀다. 100km 이상
+        # 주행 후 재확인해 두 점으로 완전한 affine 식(scale·offset_value 둘 다)을
+        # 풀 것 — 아래 odometer_ext_session 이 계기판 값을 직접 준다면 이 보정
+        # 자체가 필요 없어지므로 그쪽을 먼저 확인한다.
         - key: odometer
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
-          decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001, offset_value: -1436.5 }
+          decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.000992723 }
           unit: "km"
           device_class: distance
           state_class: total_increasing
@@ -250,13 +254,12 @@ templates:
           icon: mdi:counter
           update_interval: 60s
         # 검산용: 재생시점 주행거리 + 재생후 거리 = 총주행거리.
-        # 재생시점 값도 같은 ECU 카운터라 위와 같은 보정을 걸어야 이 관계가 유지된다.
-        # 재생후 거리는 차분이라 편향이 없으므로 보정하지 않는다.
+        # 셋 다 같은 카운터를 공유하므로 같은 배율을 적용해야 항등식이 유지된다.
         - key: odometer_at_last_dpf_regen
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
-          decode: { offset: 49, length: 4, type: uint32, endian: big, scale: 0.001, offset_value: -1436.5 }
+          decode: { offset: 49, length: 4, type: uint32, endian: big, scale: 0.000992723 }
           unit: "km"
           device_class: distance
           state_class: total_increasing
@@ -267,11 +270,35 @@ templates:
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
-          decode: { offset: 53, length: 4, type: uint32, endian: big, scale: 0.001 }
+          decode: { offset: 53, length: 4, type: uint32, endian: big, scale: 0.000992723 }
           unit: "km"
           device_class: distance
           state_class: measurement
           accuracy_decimals: 1
+          entity_category: diagnostic
+          update_interval: 60s
+
+        # ── 계기판 오도미터 재시도: 확장 진단 세션 ─────────────────────────
+        # 위 odometer 는 어디까지나 대체 경로(추정 보정)다. 진짜 계기판 값을
+        # 직접 받을 가능성이 아직 남아 있다 — 7F 22 22 의 NRC 22(conditionsNotCorrect)는
+        # UDS 표준상 "그 DID는 존재하는데 지금 조건에서 거부"라는 뜻이다.
+        # DID 자체가 없다는 NRC 11(serviceNotSupported)·31(requestOutOfRange)이 아니었다.
+        # 흔한 원인은 확장 진단 세션(10 03) 미진입이다. 요청 순서에 세션 진입을
+        # 끼워 넣고 재시도한다. 세션 진입 응답(1003) 자체는 로그에 안 남지만
+        # (pre_commands 응답은 기록되지 않음), 뒤따르는 22B002 응답은 그대로 남는다.
+        #   raw=62B002…       → 성공. formula 는 OBDb 배치(g:h:i = byte 6~8, 24bit) 그대로
+        #                        써서 계기판 값이 보정 없이 직접 나온다
+        #   negative response → 여전히 거부. NRC 가 바뀌었는지 확인 (22 그대로면
+        #                        엔진 구동중이라 막힌 것일 수 있음 — 시동 끄고 재시도)
+        - key: odometer_ext_session
+          mode: "22"
+          pid: "B002"
+          pre_commands: ["ATSH7C6", "1003"]
+          formula: "g*65536+h*256+i"
+          unit: "km"
+          device_class: distance
+          state_class: total_increasing
+          accuracy_decimals: 0
           entity_category: diagnostic
           update_interval: 60s
 
