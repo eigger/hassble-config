@@ -83,7 +83,7 @@ templates:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
         - { key: coolant_temp, preset: coolant_temp, update_interval: 10s }
-        - { key: fuel_level, preset: fuel_level, update_interval: 30s }
+        - { key: fuel_level, preset: fuel_level, update_interval: 60s }
 
   - id: obd_gm_extended
     name: "OBD-II + GM extensions"
@@ -104,11 +104,11 @@ templates:
         - { key: coolant_temp, preset: coolant_temp, update_interval: 10s }
         - key: fuel_level
           preset: fuel_level
-          update_interval: 30s
+          update_interval: 60s
           publish: { deadband: 0.5, min_interval: 60s }
-        - { key: gear, preset: gm_current_gear, update_interval: 1s }
-        - { key: prnd, preset: gm_prnd_status_alt, update_interval: 1s }
-        - { key: oil_pressure, preset: gm_oil_pressure, update_interval: 2s }
+        - { key: gear, preset: gm_current_gear, update_interval: 2s }
+        - { key: prnd, preset: gm_prnd_status_alt, update_interval: 2s }
+        - { key: oil_pressure, preset: gm_oil_pressure, update_interval: 5s }
         - { key: trans_temp, preset: gm_trans_temp, update_interval: 10s }
 
   - id: obd_hyundai_kia
@@ -162,7 +162,7 @@ templates:
           state_class: measurement
           accuracy_decimals: 1
           icon: mdi:gas-station
-          update_interval: 30s
+          update_interval: 60s
           publish: { deadband: 0.5, min_interval: 60s }
         - key: cluster_voltage
           mode: "22"
@@ -174,7 +174,7 @@ templates:
           state_class: measurement
           accuracy_decimals: 2
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 120s
 
   - id: obd_hyundai_accent_rb_diesel
     name: "OBD-II 엑센트(RB) 디젤"
@@ -206,7 +206,7 @@ templates:
           device_class: temperature
           state_class: measurement
           accuracy_decimals: 1
-          update_interval: 10s
+          update_interval: 20s
         - key: barometric_pressure
           mode: "21"
           pid: "01"
@@ -216,7 +216,7 @@ templates:
           device_class: pressure
           state_class: measurement
           accuracy_decimals: 1
-          update_interval: 30s
+          update_interval: 60s
         # ── 총주행거리 (엔진 ECU의 DPF 블록에 같이 실려 온다) ──────────────
         # 엑센트 RB는 계기판(7C6 / 22B002)이 주행거리를 직접 내주지 않는다 —
         # 요청하면 7F 22 22. 그래서 대안으로 엔진 ECU의 21 03 블록을 쓴다
@@ -242,6 +242,8 @@ templates:
         # 주행 후 재확인해 두 점으로 완전한 affine 식(scale·offset_value 둘 다)을
         # 풀 것 — 아래 odometer_flow_control 이 계기판 값을 직접 준다면 이 보정
         # 자체가 필요 없어지므로 그쪽을 먼저 확인한다.
+        # 오도미터는 분 단위로 갱신될 필요가 없고, 63바이트 멀티프레임이라 짧은
+        # PID보다 무겁다 — 주기를 늘리는 게 배터리에 가장 크게 도움되는 지점이다.
         - key: odometer
           mode: "21"
           pid: "03"
@@ -252,7 +254,7 @@ templates:
           state_class: total_increasing
           accuracy_decimals: 1
           icon: mdi:counter
-          update_interval: 60s
+          update_interval: 300s
         # 검산용: 재생시점 주행거리 + 재생후 거리 = 총주행거리.
         # 셋 다 같은 카운터를 공유하므로 같은 배율을 적용해야 항등식이 유지된다.
         - key: odometer_at_last_dpf_regen
@@ -265,7 +267,7 @@ templates:
           state_class: total_increasing
           accuracy_decimals: 1
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 300s
         - key: distance_since_dpf_regen
           mode: "21"
           pid: "03"
@@ -276,7 +278,7 @@ templates:
           state_class: measurement
           accuracy_decimals: 1
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 300s
 
         # ── 계기판 오도미터 재시도: 확장 진단 세션 ─────────────────────────
         # 위 odometer 는 어디까지나 대체 경로(추정 보정)다. 진짜 계기판 값을
@@ -313,7 +315,7 @@ templates:
           state_class: total_increasing
           accuracy_decimals: 0
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 300s
 
         # 계기판(22B002)·표준(01A6)·변속기(21A0) 오프셋 0~15 스캔은 195958km와
         # 일치하는 값을 찾지 못해 제거했다. 계기판은 애초에 22B002 자체를
@@ -338,7 +340,7 @@ templates:
           state_class: measurement
           accuracy_decimals: 1
           icon: mdi:oil-temperature
-          update_interval: 10s
+          update_interval: 20s
         - key: gear_position
           mode: "21"
           pid: "A0"
@@ -356,7 +358,7 @@ templates:
               "11": "P"
               "12": "Sport"
               "16": "E Mode"
-          update_interval: 1s
+          update_interval: 2s
         - key: gear
           mode: "21"
           pid: "A0"
@@ -377,7 +379,7 @@ templates:
               "6": "6"
               "7": "7"
               "8": "8"
-          update_interval: 1s
+          update_interval: 2s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
