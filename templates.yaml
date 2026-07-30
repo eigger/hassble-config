@@ -240,7 +240,7 @@ templates:
         #
         # 측정이 한 점뿐이라 배율만 가정했고 절편은 0으로 뒀다. 100km 이상
         # 주행 후 재확인해 두 점으로 완전한 affine 식(scale·offset_value 둘 다)을
-        # 풀 것 — 아래 odometer_ext_session 이 계기판 값을 직접 준다면 이 보정
+        # 풀 것 — 아래 odometer_flow_control 이 계기판 값을 직접 준다면 이 보정
         # 자체가 필요 없어지므로 그쪽을 먼저 확인한다.
         - key: odometer
           mode: "21"
@@ -283,17 +283,30 @@ templates:
         # 직접 받을 가능성이 아직 남아 있다 — 7F 22 22 의 NRC 22(conditionsNotCorrect)는
         # UDS 표준상 "그 DID는 존재하는데 지금 조건에서 거부"라는 뜻이다.
         # DID 자체가 없다는 NRC 11(serviceNotSupported)·31(requestOutOfRange)이 아니었다.
-        # 흔한 원인은 확장 진단 세션(10 03) 미진입이다. 요청 순서에 세션 진입을
-        # 끼워 넣고 재시도한다. 세션 진입 응답(1003) 자체는 로그에 안 남지만
-        # (pre_commands 응답은 기록되지 않음), 뒤따르는 22B002 응답은 그대로 남는다.
-        #   raw=62B002…       → 성공. formula 는 OBDb 배치(g:h:i = byte 6~8, 24bit) 그대로
-        #                        써서 계기판 값이 보정 없이 직접 나온다
-        #   negative response → 여전히 거부. NRC 가 바뀌었는지 확인 (22 그대로면
-        #                        엔진 구동중이라 막힌 것일 수 있음 — 시동 끄고 재시도)
-        - key: odometer_ext_session
+        #
+        # meatpiHQ/wican-fw#478 에서 같은 헤더(7C6)·같은 PID(22B002)로 실제 성공한
+        # 사례 둘을 확인했다: 아이오닉 28kWh(WiCAN, pid_init "ATSH7C6;ATFCSH7C6")와
+        # 아이오닉5(canair, 세션 명령 없이 바로 조회). 둘 다 확장 세션(10 03) 없이
+        # 됐고, 공통점은 흐름제어(ATFCSH) 설정뿐이었다. 그래서 세션 대신 흐름제어를
+        # 먼저 시도한다 — 실제 성공 사례에 더 가깝다.
+        #
+        # 오도미터 위치도 세대별로 다르다: 아이오닉5·OBDb ICE 11개 차종은 byte
+        # 6~8(g,h,i)인데, 구형 아이오닉 28kWh는 byte 9~11(j,k,l)이었다
+        # (WiCAN이 ISO-TP PCI 바이트를 페이로드에 섞어 넣는 별도 버그가 있어,
+        # 그 이슈에서 공개한 보정표로 실제 위치를 역산한 값). 응답은 왔는데
+        # 195958과 안 맞으면 formula 를 "j*65536+k*256+l" 로 바꿔서 재시도할 것.
+        #
+        # pre_commands 자체의 응답(흐름제어 설정 OK/에러)은 로그에 안 남지만
+        # (해당 응답을 기다리는 센서가 없어 기록 경로를 안 탄다), 뒤따르는
+        # 22B002 응답은 그대로 남는다.
+        #   raw=62B002… → 성공. 계기판 값이 보정 없이 직접 나온다
+        #   negative response 그대로 → 흐름제어도 소용없음. 세션(10 03)으로 한 번 더
+        #     시도해볼 수는 있으나, 위 두 성공 사례 모두 세션 없이 됐다는 점에서
+        #     이 차는 DID 자체가 없을 가능성이 이전보다 높아졌다.
+        - key: odometer_flow_control
           mode: "22"
           pid: "B002"
-          pre_commands: ["ATSH7C6", "1003"]
+          pre_commands: ["ATSH7C6", "ATFCSH7C6", "ATFCSD300000", "ATFCSM1"]
           formula: "g*65536+h*256+i"
           unit: "km"
           device_class: distance
