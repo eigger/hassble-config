@@ -193,9 +193,9 @@ templates:
       sensors:
         - { key: rpm, preset: rpm, update_interval: 1s }
         - { key: speed, preset: speed, update_interval: 1s }
-        # 표준 연료 게이지(%). OBDb 엑센트 실차 캡처에서 2013~2019 전 연식
-        # 7E0 supported(012F:FLI)로 확인됨. 계기판 리터 값과 별개 경로다.
-        - { key: fuel_percent, preset: fuel_level, update_interval: 30s }
+        # 연료량은 이 차에서 읽을 방법이 없다. 표준 01 2F는 실차에서 NO DATA를
+        # 돌려주고(OBDb 캡처는 북미 가솔린 기준이라 디젤에는 맞지 않았다),
+        # 계기판 22B002도 7F 22 22로 거부한다.
         # awesomeit 엑센트RB 2013 D 1.6 TCI-U2 프로필에서 확인된 값들
         - key: intake_temp
           mode: "21"
@@ -229,25 +229,37 @@ templates:
         #
         # 응답이 byte 57까지 도착하지 않으면 decode가 null을 돌려주고 아무것도
         # 발행되지 않는다 — 미지원 차에서 엉뚱한 값이 올라오지 않는다.
+        #
+        # offset_value = -1436.5 는 계기판 대조 보정이다. 2026-07-30 실측에서
+        # ECU 카운터 197394.5 km, 계기판 195958 km 로 0.733% 높게 나왔다.
+        # 이 카운터는 DPF 서비스 주기용이라 법정 계기판 수치와 별개로 관리되고,
+        # 속도 신호원이 달라 장기간에 걸쳐 벌어진다.
+        # 측정이 한 번뿐이라 상수 오차인지 비례 오차인지 구분되지 않아 우선 상수로 뒀다.
+        # 100km 이상 주행 후 재확인할 것:
+        #   차이가 1436.5 그대로면 상수가 맞고, 1437.2 근처로 늘면 비례이므로
+        #   offset_value 를 빼고 scale 을 0.000992723 으로 바꾼다.
         - key: odometer
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
-          decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001 }
+          decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001, offset_value: -1436.5 }
           unit: "km"
           device_class: distance
           state_class: total_increasing
           accuracy_decimals: 1
           icon: mdi:counter
           update_interval: 60s
-        # 검산용. 재생시점 주행거리 + 재생후 거리 = 총주행거리가 성립해야 한다.
+        # 검산용: 재생시점 주행거리 + 재생후 거리 = 총주행거리.
+        # 재생시점 값도 같은 ECU 카운터라 위와 같은 보정을 걸어야 이 관계가 유지된다.
+        # 재생후 거리는 차분이라 편향이 없으므로 보정하지 않는다.
         - key: odometer_at_last_dpf_regen
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
-          decode: { offset: 49, length: 4, type: uint32, endian: big, scale: 0.001 }
+          decode: { offset: 49, length: 4, type: uint32, endian: big, scale: 0.001, offset_value: -1436.5 }
           unit: "km"
           device_class: distance
+          state_class: total_increasing
           accuracy_decimals: 1
           entity_category: diagnostic
           update_interval: 60s
@@ -258,15 +270,8 @@ templates:
           decode: { offset: 53, length: 4, type: uint32, endian: big, scale: 0.001 }
           unit: "km"
           device_class: distance
+          state_class: measurement
           accuracy_decimals: 1
-          entity_category: diagnostic
-          update_interval: 60s
-        # raw= hex를 로그에 남기기 위한 프로브. 위 센서들이 값을 내면 지워도 된다.
-        - key: probe_2103
-          mode: "21"
-          pid: "03"
-          pre_commands: ["ATSH7E0"]
-          formula: "a"
           entity_category: diagnostic
           update_interval: 60s
 
