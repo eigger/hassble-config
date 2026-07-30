@@ -290,41 +290,166 @@ templates:
         # 실제로 7E0.2103 이 거기서는 unsupported 인데 이 차에서는 동작한다.
         # 그래서 아래 후보들은 캡처로 배제하지 않고 실차에서 직접 확인한다.
         #
-        # 아래 세 개는 아직 바이트 배치가 알려지지 않은 블록이다. awesomeit(2000여 개
+        # 계기판(7C6) 과 변속기(7E1) 는 바이트 배치가 알려져 있지 않다. awesomeit(2000여 개
         # 차량 설정)에도 OBDb 에도 7C6 에는 22B002 하나뿐이라 참고할 공식이 없다.
-        # 그래서 formula 는 "a" — 값 자체는 의미가 없고, 요청을 내보내 로그에
-        # raw hex 를 남기는 것이 목적이다. hex 를 보고 나서 실제 공식을 쓴다.
-        # 전부 읽기 전용 요청(service 21/22)이라 차에 영향이 없다.
+        # 그래서 오프셋을 훑는다. decode 는 offset+length 가 응답 범위를 넘으면 null 을
+        # 돌려주고 아무것도 발행하지 않으므로, 존재하지 않는 오프셋은 그냥 빈 채로 남는다.
         #
-        # 로그에서 확인할 것:
-        #   raw=61xx… / 62xx…  → 응답함. hex 전체에서 195958 근처 값을 찾으면 된다
-        #   NO DATA            → 미지원
-        #   negative response  → 존재하지만 거부 (NRC 로 이유 확인)
-
-        # 계기판 mode 21 블록. 7C6 은 22B002 를 거부하면서도 응답 자체는 하므로
-        # ECU 는 살아 있다. 계기판 값을 얻을 가능성이 가장 높은 후보다.
-        - key: probe_7c6_2101
-          mode: "21"
-          pid: "01"
-          pre_commands: ["ATSH7C6"]
-          formula: "a"
-          entity_category: diagnostic
-          update_interval: 60s
-        # B002 인접 DID. 순수 탐색이다.
+        # 길이 3 + uint32 는 24bit 읽기다 (toLong 이 slice 길이만큼만 시프트한다).
+        # 이 플랫폼의 계기판 오도미터는 22B002 에서 24bit·스케일 1(km) 형태이므로
+        # 같은 형태로 찾는다. 엔진 쪽 32bit/1000 형태는 이미 odometer 센서가 쓰고 있다.
+        #
+        # 찾을 값: 195958 km = 0x02FD76. 이 값을 보이는 센서 하나만 남기고
+        # 나머지 odo_* 와 probe_* 는 전부 지우면 된다.
+        #
+        # 22 B001 / 22 B003 은 응답 여부조차 모르므로 우선 존재만 확인한다.
+        # 응답하면 그 hex 를 보고 같은 방식으로 스캔을 붙인다.
         - key: probe_7c6_22b001
           mode: "22"
           pid: "B001"
           pre_commands: ["ATSH7C6"]
           formula: "a"
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 120s
         - key: probe_7c6_22b003
           mode: "22"
           pid: "B003"
           pre_commands: ["ATSH7C6"]
           formula: "a"
           entity_category: diagnostic
-          update_interval: 60s
+          update_interval: 120s
+
+        # 2101 @ 7C6 — offset 0~15 훑기
+        - { key: odo_7c6_2101_00, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 0, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_01, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 1, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_02, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 2, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_03, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 3, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_04, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 4, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_05, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 5, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_06, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 6, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_07, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 7, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_08, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 8, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_09, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 9, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_10, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 10, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_11, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 11, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_12, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 12, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_13, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 13, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_14, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 14, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7c6_2101_15, mode: "21", pid: "01", pre_commands: ["ATSH7C6"],
+            decode: { offset: 15, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        # 21A0 @ 7E1 — offset 0~15 훑기
+        - { key: odo_7e1_21a0_00, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 0, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_01, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 1, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_02, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 2, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_03, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 3, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_04, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 4, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_05, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 5, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_06, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 6, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_07, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 7, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_08, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 8, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_09, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 9, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_10, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 10, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_11, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 11, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_12, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 12, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_13, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 13, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_14, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 14, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+        - { key: odo_7e1_21a0_15, mode: "21", pid: "A0", pre_commands: ["ATSH7E1"],
+            decode: { offset: 15, length: 3, type: uint32, endian: big },
+            unit: "km", state_class: measurement, accuracy_decimals: 0,
+            entity_category: diagnostic, update_interval: 120s }
+
         # 표준 오도미터 PID (SAE J1979). 2013 엑센트의 mode 01 지원 목록이 0145 에서
         # 끊겨 가능성은 낮지만, 되면 그대로 계기판 값이다. 공식은 표준이라 확정이다.
         - key: odometer_standard
