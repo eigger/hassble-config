@@ -138,6 +138,10 @@ templates:
         # 출처: OBDb(obdb.community)에서 현대·기아 11개 차종이 동일한 바이트 배치로 확인.
         # awesomeit Torque 플러그인(35개 차종)·Elantra CN7 PID 목록과도 일치.
         # 2013년식 이후에서 널리 동작하며, 미지원 차는 NO DATA를 반환한다.
+        #
+        # 예외: 엑센트(RB)는 계기판이 이 DID를 열지 않는다. 2013/2015/2019 실차 캡처에서
+        # unsupported로 확인됐고 (2018년식만 예외), 요청하면 7F 22 22를 돌려준다.
+        # 엑센트는 아래 obd_hyundai_accent_rb_diesel 템플릿을 쓸 것.
         - key: odometer
           mode: "22"
           pid: "B002"
@@ -171,6 +175,69 @@ templates:
           accuracy_decimals: 2
           entity_category: diagnostic
           update_interval: 60s
+
+  - id: obd_hyundai_accent_rb_diesel
+    name: "OBD-II 엑센트(RB) 디젤"
+    description: "RPM, 속도, 연료 %, 흡기온도, 대기압 + 총주행거리 프로브 — 엑센트 RB 1.6 TCI-U2"
+    device:
+      id: car_obd_accent
+      name: "Accent RB Diesel"
+      source: obd
+      obd:
+        service_uuid: "18F0"
+        tx_char_uuid: "2AF1"
+        rx_char_uuid: "2AF0"
+        tx_delay: 50ms
+        init_commands: ["ATSP6"]
+        # 아래 ATSH7E0 센서가 있으므로 표준 센서 앞에 ATSH7DF가 자동 삽입된다
+      sensors:
+        - { key: rpm, preset: rpm, update_interval: 1s }
+        - { key: speed, preset: speed, update_interval: 1s }
+        # 표준 연료 게이지(%). OBDb 엑센트 실차 캡처에서 2013~2019 전 연식
+        # 7E0 supported(012F:FLI)로 확인됨. 계기판 리터 값과 별개 경로다.
+        - { key: fuel_percent, preset: fuel_level, update_interval: 30s }
+        # awesomeit 엑센트RB 2013 D 1.6 TCI-U2 프로필에서 확인된 값들
+        - key: intake_temp
+          mode: "21"
+          pid: "01"
+          pre_commands: ["ATSH7E0"]
+          formula: "k*0.980392-50"
+          unit: "°C"
+          device_class: temperature
+          state_class: measurement
+          accuracy_decimals: 1
+          update_interval: 10s
+        - key: barometric_pressure
+          mode: "21"
+          pid: "01"
+          pre_commands: ["ATSH7E0"]
+          formula: "j*1.372549"
+          unit: "kPa"
+          device_class: pressure
+          state_class: measurement
+          accuracy_decimals: 1
+          update_interval: 30s
+        # ── 총주행거리 프로브 (값을 쓰려는 게 아니라 raw 응답을 로그에 남기려는 것) ──
+        # 엑센트 RB는 계기판(7C6 / 22B002)이 주행거리를 열지 않는다 — 요청하면 7F 22 22.
+        # 대신 엔진 ECU의 21 03 블록에 있다 (OBDb 메이커 공용 HYUNDAI_ODO_V2):
+        #   byte 49~52  마지막 DPF 재생 시점의 주행거리   /1000 km
+        #   byte 53~56  재생 이후 달린 거리               /1000 km
+        #   byte 57~60  총주행거리                        /1000 km  ← 목표
+        # 셋은 서로 다른 필드다. awesomeit이 "DPF 주행거리"로 부르는 건 byte 53(재생 후 거리).
+        # 그 프로필이 같은 21 03에서 byte 53~55를 읽으므로, 이 차의 응답은 최소
+        # byte 55까지 도착한다 — 목표는 두 바이트 뒤다.
+        #
+        # 앱의 formula 변수는 현재 byte 19(t)까지여서 byte 57을 직접 못 읽는다.
+        # 이 센서는 앱 로그의 raw= hex를 확보하기 위한 것이다.
+        # hex가 126자(63바이트) 이상이면 byte 57~60이 응답에 들어있다.
+        # 확인되면 OBD 센서에 offset 기반 decode를 추가해 정식 센서로 교체한다.
+        - key: probe_2103
+          mode: "21"
+          pid: "03"
+          pre_commands: ["ATSH7E0"]
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 30s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
