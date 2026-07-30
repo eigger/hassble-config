@@ -299,8 +299,32 @@ Connects to an ELM327 BLE adapter, sends OBD-II (and GM mode 22) PID commands, a
 | `mode` | string | OBD mode. `"01"` = standard, `"22"` = manufacturer specific. Default `"01"`. |
 | `pid` | string | PID hex code (without mode prefix). E.g. `"0C"`, `"199A"`. |
 | `formula` | string | Math expression. Variables `a`–`t` are response bytes 0–19. E.g. `"(a*256+b)/4"`. If the response is too short to bind a byte used in the expression, nothing is published for that poll. |
+| `decode` | map | Extract the value by byte offset instead of `formula`. Use it to reach bytes past the 20th (see below). |
 | `update_interval` | duration | How often to poll this PID. Default `60s`. |
 | `pre_commands` | list | Extra AT/OBD commands to send before this PID (e.g., header switch for GM). |
+
+### Reaching values in long responses (decode)
+
+`formula` variables only address the **first 20 bytes** of a response (`a`–`t`). Anything
+further in is read with `decode`, which takes the same fields as the [decode section](#decode--byte-decoding).
+
+```yaml
+# Odometer in the Hyundai 21 03 block — bytes 57-60, 32-bit, /1000 = km
+- key: odometer
+  mode: "21"
+  pid: "03"
+  pre_commands: ["ATSH7E0"]
+  decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001 }
+  unit: "km"
+  device_class: distance
+  state_class: total_increasing
+```
+
+`offset` is 0-based into the data with the mode/PID echo removed, so `offset: 0` is the same
+byte as `a` in a formula. If the response is too short for `offset + length`, nothing is
+published for that poll, so an unsupported car never reports a bogus value.
+
+`decode` wins if a sensor sets both `decode` and `formula`.
 
 ### Header restore (ATSH)
 

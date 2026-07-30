@@ -217,7 +217,7 @@ templates:
           state_class: measurement
           accuracy_decimals: 1
           update_interval: 30s
-        # ── 총주행거리 프로브 (값을 쓰려는 게 아니라 raw 응답을 로그에 남기려는 것) ──
+        # ── 총주행거리 (엔진 ECU의 DPF 블록에 같이 실려 온다) ──────────────
         # 엑센트 RB는 계기판(7C6 / 22B002)이 주행거리를 열지 않는다 — 요청하면 7F 22 22.
         # 대신 엔진 ECU의 21 03 블록에 있다 (OBDb 메이커 공용 HYUNDAI_ODO_V2):
         #   byte 49~52  마지막 DPF 재생 시점의 주행거리   /1000 km
@@ -227,17 +227,48 @@ templates:
         # 그 프로필이 같은 21 03에서 byte 53~55를 읽으므로, 이 차의 응답은 최소
         # byte 55까지 도착한다 — 목표는 두 바이트 뒤다.
         #
-        # 앱의 formula 변수는 현재 byte 19(t)까지여서 byte 57을 직접 못 읽는다.
-        # 이 센서는 앱 로그의 raw= hex를 확보하기 위한 것이다.
-        # hex가 126자(63바이트) 이상이면 byte 57~60이 응답에 들어있다.
-        # 확인되면 OBD 센서에 offset 기반 decode를 추가해 정식 센서로 교체한다.
+        # 응답이 byte 57까지 도착하지 않으면 decode가 null을 돌려주고 아무것도
+        # 발행되지 않는다 — 미지원 차에서 엉뚱한 값이 올라오지 않는다.
+        - key: odometer
+          mode: "21"
+          pid: "03"
+          pre_commands: ["ATSH7E0"]
+          decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001 }
+          unit: "km"
+          device_class: distance
+          state_class: total_increasing
+          accuracy_decimals: 1
+          icon: mdi:counter
+          update_interval: 60s
+        # 검산용. 재생시점 주행거리 + 재생후 거리 = 총주행거리가 성립해야 한다.
+        - key: odometer_at_last_dpf_regen
+          mode: "21"
+          pid: "03"
+          pre_commands: ["ATSH7E0"]
+          decode: { offset: 49, length: 4, type: uint32, endian: big, scale: 0.001 }
+          unit: "km"
+          device_class: distance
+          accuracy_decimals: 1
+          entity_category: diagnostic
+          update_interval: 60s
+        - key: distance_since_dpf_regen
+          mode: "21"
+          pid: "03"
+          pre_commands: ["ATSH7E0"]
+          decode: { offset: 53, length: 4, type: uint32, endian: big, scale: 0.001 }
+          unit: "km"
+          device_class: distance
+          accuracy_decimals: 1
+          entity_category: diagnostic
+          update_interval: 60s
+        # raw= hex를 로그에 남기기 위한 프로브. 위 센서들이 값을 내면 지워도 된다.
         - key: probe_2103
           mode: "21"
           pid: "03"
           pre_commands: ["ATSH7E0"]
           formula: "a"
           entity_category: diagnostic
-          update_interval: 30s
+          update_interval: 60s
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"

@@ -299,8 +299,32 @@ BLE ELM327 어댑터에 연결하여 OBD-II(및 GM mode 22) PID 명령을 전송
 | `mode` | string | OBD 모드. `"01"`=표준, `"22"`=제조사 확장. 기본 `"01"`. |
 | `pid` | string | PID hex 코드. 예: `"0C"`, `"199A"`. |
 | `formula` | string | 수식. `a`~`t`가 응답의 0~19번째 바이트. 예: `"(a*256+b)/4"`. 응답이 짧아 식에 쓴 바이트가 없으면 그 주기는 발행하지 않음. |
+| `decode` | map | `formula` 대신 offset으로 값 추출. 20번째 이후 바이트를 읽어야 할 때 사용 (아래 참조). |
 | `update_interval` | duration | 이 PID를 폴링하는 간격. 기본 `60s`. |
 | `pre_commands` | list | 이 PID 전에 전송할 추가 명령 (예: GM 헤더 전환). |
+
+### 긴 응답에서 값 꺼내기 (decode)
+
+`formula`의 변수는 응답의 **앞 20바이트**(`a`~`t`)까지만 가리킵니다. 그보다 뒤에 있는 값은
+`decode`로 읽습니다. 필드 구성은 [decode 절](#decode--바이트-디코딩)과 같습니다.
+
+```yaml
+# 현대 21 03 블록의 총주행거리 — byte 57~60, 32bit, /1000 = km
+- key: odometer
+  mode: "21"
+  pid: "03"
+  pre_commands: ["ATSH7E0"]
+  decode: { offset: 57, length: 4, type: uint32, endian: big, scale: 0.001 }
+  unit: "km"
+  device_class: distance
+  state_class: total_increasing
+```
+
+`offset`은 mode/PID 에코를 제외한 데이터의 0-based 위치로, `formula`의 `a`가 `offset: 0`과
+같습니다. 응답이 짧아 `offset + length`가 범위를 벗어나면 그 주기에는 아무것도 발행하지
+않습니다 — 지원하지 않는 차에서 엉뚱한 값이 올라오지 않습니다.
+
+한 센서에 `decode`와 `formula`를 모두 쓰면 `decode`가 우선합니다.
 
 ### 헤더 복원 (ATSH)
 
