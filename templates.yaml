@@ -275,6 +275,70 @@ templates:
           entity_category: diagnostic
           update_interval: 60s
 
+        # ── 계기판 일치 오도미터 탐색용 프로브 (확인 끝나면 이 블록만 지울 것) ──
+        #
+        # 위 odometer 는 엔진 ECU 카운터라 계기판보다 1436.5 km 높고 offset_value 로
+        # 맞춰둔 상태다. 7E0 의 다른 블록을 더 뒤져도 같은 카운터라 편향이 같으므로,
+        # 계기판 값을 얻으려면 독립된 ECU(계기판 7C6 / 변속기 7E1)를 봐야 한다.
+        #
+        # 배제된 것 — 다시 넣지 말 것:
+        #   22 B002 @ 7C6  이 차가 7F 22 22 (conditionsNotCorrect)로 직접 거부.
+        #                  OBDb 실차 캡처도 2013/2015/2019 엑센트 unsupported.
+        #   01 2F          연료량. NO DATA. 오도미터와 무관하지만 재시도 방지용 기록.
+        #
+        # 주의: OBDb 의 엑센트 캡처는 북미 가솔린 차량이라 이 디젤을 대변하지 못한다.
+        # 실제로 7E0.2103 이 거기서는 unsupported 인데 이 차에서는 동작한다.
+        # 그래서 아래 후보들은 캡처로 배제하지 않고 실차에서 직접 확인한다.
+        #
+        # 전부 읽기 전용 요청(service 01/21/22)이다. 값은 쓰지 않고 응답 유무와
+        # raw hex 확보가 목적이므로 formula 는 첫 바이트만 본다.
+        # 로그에서 확인할 것:
+        #   raw=61xx… / 62xx…  → 응답함. hex 전체를 뜨면 오도미터 위치를 찾을 수 있다.
+        #   NO DATA            → 미지원
+        #   negative response  → 존재하지만 거부 (NRC 확인)
+
+        # 계기판 mode 21 블록. 7C6 은 22B002 를 거부하면서도 응답 자체는 하므로
+        # ECU 는 살아 있다. 계기판 값을 얻을 가능성이 가장 높은 후보다.
+        - key: probe_7c6_2101
+          mode: "21"
+          pid: "01"
+          pre_commands: ["ATSH7C6"]
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 60s
+        # B002 인접 DID. awesomeit·OBDb 어디에도 기록이 없어 순수 탐색이다.
+        - key: probe_7c6_22b001
+          mode: "22"
+          pid: "B001"
+          pre_commands: ["ATSH7C6"]
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 60s
+        - key: probe_7c6_22b003
+          mode: "22"
+          pid: "B003"
+          pre_commands: ["ATSH7C6"]
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 60s
+        # 변속기(TCU). awesomeit 엑센트RB 프로필이 21A0 @ 7E1 에서 기어단수·미션오일온도를
+        # 읽으므로 이 블록은 이 차에 존재한다. 엔진과 독립된 카운터를 가질 수 있다.
+        - key: probe_7e1_21a0
+          mode: "21"
+          pid: "A0"
+          pre_commands: ["ATSH7E1"]
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 60s
+        # 표준 오도미터 PID. 2013 엑센트의 mode 01 지원 목록이 0145 에서 끊겨
+        # 가능성은 낮지만, 되면 그대로 계기판 값이라 한 번은 확인할 가치가 있다.
+        - key: probe_01a6
+          mode: "01"
+          pid: "A6"
+          formula: "a"
+          entity_category: diagnostic
+          update_interval: 60s
+
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
     description: "Notify characteristic + switch control example"
