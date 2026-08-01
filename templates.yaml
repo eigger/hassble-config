@@ -322,64 +322,12 @@ templates:
         # 7F 22 22로 거부하므로 다른 DID를 더 뒤져볼 이유가 약하고, 표준 01A6은
         # mode 01 지원 목록에 없어 예상대로였다. 위 offset_value 보정을 계속 쓴다.
 
-        # ── 변속기(TCU) 21A0 @ 7E1 ────────────────────────────────────────
-        # awesomeit 엑센트RB 2013 D 1.6 TCI-U2 프로필의 공식 그대로다.
-        # 오도미터 스캔과는 별개로, 이 블록 자체는 이 차에 존재하는 것으로 알려진
-        # 값이라 남겨둔다. 스캔은 offset 0~15만 봤고 이 값들은 13·20·21번째라
-        # 범위 안이었지만 195958과 다른 값(온도·기어)이라 스캔에서 걸러졌을 뿐,
-        # 응답 자체가 없었는지는 확인되지 않았다. 재임포트 후 값이 안 뜨면
-        # (NO DATA가 로그에 남으면) 이 3개도 지운다.
-        #   N(byte 13) 미션오일온도,  U(byte 20) 기어위치,  V(byte 21) 기어단수
-        - key: trans_oil_temp
-          mode: "21"
-          pid: "A0"
-          pre_commands: ["ATSH7E1"]
-          formula: "n-40"
-          unit: "°C"
-          device_class: temperature
-          state_class: measurement
-          accuracy_decimals: 1
-          icon: mdi:oil-temperature
-          update_interval: 20s
-        - key: gear_position
-          mode: "21"
-          pid: "A0"
-          pre_commands: ["ATSH7E1"]
-          platform: text_sensor
-          icon: mdi:car-shift-pattern
-          decode:
-            offset: 20
-            length: 1
-            type: uint8
-            map:
-              "8": "D"
-              "9": "N"
-              "10": "R"
-              "11": "P"
-              "12": "Sport"
-              "16": "E Mode"
-          update_interval: 2s
-        - key: gear
-          mode: "21"
-          pid: "A0"
-          pre_commands: ["ATSH7E1"]
-          platform: text_sensor
-          icon: mdi:numeric
-          decode:
-            offset: 21
-            length: 1
-            type: uint8
-            map:
-              "0": "P/N"
-              "1": "1"
-              "2": "2"
-              "3": "3"
-              "4": "4"
-              "5": "5"
-              "6": "6"
-              "7": "7"
-              "8": "8"
-          update_interval: 2s
+        # 변속기(TCU) 21A0 @ 7E1 은 응답은 하지만 내용이 없다. 실차 확인 결과
+        # 응답이 61A0FFFF0000 — 에코를 뺀 데이터가 4바이트(FF FF 00 00)뿐이고
+        # 값도 고정이다. awesomeit 프로필이 이 블록에서 읽는 미션오일온도(byte 13),
+        # 기어위치(byte 20), 기어단수(byte 21)는 전부 이 범위 밖이라 셋 다
+        # 영구히 값이 없다. 프로필이 이 차의 다른 트림/사양 기준이었던 것으로 보인다.
+        # decode 가 범위 밖에서 null 을 돌려주는 덕에 엉뚱한 값이 올라오진 않았다.
 
   - id: gatt_meter_relay
     name: "GATT power meter + relay"
