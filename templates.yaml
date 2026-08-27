@@ -79,7 +79,7 @@ templates:
         manufacturer_hex_prefix: "06"     # 06 응답 포맷 (특정 세대만 필터링 시 06 + 16B 수신 UUID HEX 입력)
         manufacturer_min_length: 18       # 포맷(1B) + 세대 UUID(16B) + 층(1B) = 최소 18바이트
       sensors:
-        # 주차 층수: 1B int8 (-2: B2, -1: B1, 0: LB, 1: 1F, 2: 2F 등)
+        # 주차 층수: 1B uint8 (254=0xFE: B2, 255=0xFF: B1, 0=0x00: LB, 1=0x01: 1F, 2=0x02: 2F 등)
         - key: parking_floor
           platform: text_sensor
           icon: mdi:layers-outline
@@ -87,13 +87,13 @@ templates:
           decode:
             offset: 17
             length: 1
-            type: int8
+            type: uint8
             map:
-              "-5": "B5"
-              "-4": "B4"
-              "-3": "B3"
-              "-2": "B2"
-              "-1": "B1"
+              "251": "B5"
+              "252": "B4"
+              "253": "B3"
+              "254": "B2"
+              "255": "B1"
               "0": "LB"
               "1": "1F"
               "2": "2F"
@@ -105,10 +105,7 @@ templates:
           platform: text_sensor
           icon: mdi:map-marker-outline
           source_field: manufacturer_data
-          decode:
-            offset: 18
-            length: 4
-            type: string
+          decode: { offset: 18, length: 4, type: string }
 
   - id: obd_standard
     name: "OBD-II (standard PIDs)"
