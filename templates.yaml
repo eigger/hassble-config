@@ -66,6 +66,50 @@ templates:
           length: 14
           decode: { offset: 12, length: 2, type: string }
 
+  - id: mytown_parking_beacon
+    name: "마이타운 주차 비콘 (MyTown Parking)"
+    description: "마이타운 주차 위치 비콘 (제조사 861 / 0x035D, 포맷 0x06)"
+    device:
+      id: mytown_parking
+      name: "마이타운 주차위치"
+      source: advertisement
+      instance_mode: shared
+      match:
+        manufacturer_id: 861              # 0x035D
+        manufacturer_hex_prefix: "06"     # 06 응답 포맷 (특정 세대만 필터링 시 06 + 16B 수신 UUID HEX 입력)
+        manufacturer_min_length: 18       # 포맷(1B) + 세대 UUID(16B) + 층(1B) = 최소 18바이트
+      sensors:
+        # 주차 층수: 1B int8 (-2: B2, -1: B1, 0: LB, 1: 1F, 2: 2F 등)
+        - key: parking_floor
+          platform: text_sensor
+          icon: mdi:layers-outline
+          source_field: manufacturer_data
+          decode:
+            offset: 17
+            length: 1
+            type: int8
+            map:
+              "-5": "B5"
+              "-4": "B4"
+              "-3": "B3"
+              "-2": "B2"
+              "-1": "B1"
+              "0": "LB"
+              "1": "1F"
+              "2": "2F"
+              "3": "3F"
+              "4": "4F"
+              "5": "5F"
+        # 주차 구역: ASCII 텍스트 (예: 41 2D 30 31 -> "A-01")
+        - key: parking_location
+          platform: text_sensor
+          icon: mdi:map-marker-outline
+          source_field: manufacturer_data
+          decode:
+            offset: 18
+            length: 4
+            type: string
+
   - id: obd_standard
     name: "OBD-II (standard PIDs)"
     description: "RPM, speed, coolant, fuel — bind ELM327 adapter in app"
