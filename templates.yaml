@@ -100,12 +100,12 @@ templates:
               "3": "3F"
               "4": "4F"
               "5": "5F"
-        # 주차 구역: ASCII 텍스트 (예: 41 2D 30 31 -> "A-01")
+        # 주차 구역: ASCII 텍스트 (예: 42 33 31 -> "B31", 41 2D 30 31 -> "A-01", 단지 포맷에 맞춰 length 조정)
         - key: parking_location
           platform: text_sensor
           icon: mdi:map-marker-outline
           source_field: manufacturer_data
-          decode: { offset: 18, length: 4, type: string }
+          decode: { offset: 18, length: 3, type: string }
 
   - id: obd_standard
     name: "OBD-II (standard PIDs)"
