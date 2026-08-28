@@ -140,7 +140,7 @@ defaults:
     on_change_only: true
     min_interval: 5s
   sensors: [...]
-  controls: [...]        # gatt_notify / obd만 사용 가능
+  controls: [...]        # gatt_notify / obd / advertisement(action 전용)
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
@@ -204,6 +204,56 @@ defaults:
 |----|------|
 | `mac` (기본) | 고유 MAC 주소마다 별도의 HA 엔티티 세트를 생성합니다. 엔티티 unique_id: `{device_id}_{MAC}_temperature` 등. 앱의 Sensors 탭에서 MAC을 바인딩하면 기기가 스캔되기 전에 엔티티를 미리 생성할 수 있습니다. |
 | `shared` | 모든 매칭 광고 기기가 하나의 HA 엔티티를 공유합니다. 마지막으로 수신된 패킷이 상태를 덮어씁니다. 주차 비콘, 클리커 등에 유용합니다. |
+
+### advertise — BLE 광고 송신 (TX)
+
+지하주차장 위치 요청 비콘처럼 앱에서 스마트폰의 BLE 광고를 송신하여 주변 비콘을 깨우고 응답을 유도하는 기능입니다.
+
+```yaml
+- id: mytown_parking
+  name: "마이타운 주차위치"
+  source: advertisement
+  instance_mode: shared
+  match:
+    manufacturer_id: 861             # 0x035D — kaml 파싱을 위해 10진수(decimal) 사용 권장
+    manufacturer_hex_prefix: "06"    # 06 응답 포맷 매칭
+    manufacturer_min_length: 18
+  advertise:
+    manufacturer_id: 861
+    payload: "05CB34447B91F8C69BBE41157C70BB631C40{counter:02X}"
+    counter_mode: reset              # reset(기본) | persist
+    counter_start: 0                 # reset 모드 시작값, persist 모드 초기 시드값 (0~255)
+    mode: balanced                   # low_power (~1s) | balanced (~250ms) | low_latency (~100ms)
+    tx_power: high                   # ultra_low | low | medium | high
+    timeout: 15s                     # 이 시간 지나면 자동 송신 중단
+    repeat_interval: 1s              # (선택) 이 주기로 payload 갱신 = counter 증가
+    stop_on_response: true           # match 조건에 부합하는 광고 수신 시 즉시 송신 중단
+    connectable: false
+    scannable: true
+  controls:
+    - key: request_location
+      type: button
+      name: "주차위치 요청"
+      action: advertise              # command 대신 앱 내부 광고 송신 동작 실행
+      icon: mdi:car-search
+```
+
+| 필드 | 필수 | 기본값 | 설명 |
+|------|------|--------|------|
+| `manufacturer_id` | ✅ | | BLE Company Identifier (10진수). 예: 861 (=0x035D). |
+| `payload` | ✅ | | Manufacturer Data payload hex (Company ID 제외). `{counter}`(10진수) 또는 `{counter:02X}`(2자리 hex) 토큰 사용 가능. 레거시 광고 24바이트 제한. |
+| `counter_mode` | | `reset` | 카운터 모드: `reset` (누를 때마다 `counter_start`부터 시작, 버스트 내에서만 증가) \| `persist` (앱 재시작 후에도 이전 값에서 이어짐). |
+| `counter_start` | | `0` | 카운터 시작값 (0~255). `reset` 모드 시 매 요청 시작값, `persist` 모드 시 최초 영속 전 초기 시드값. |
+| `mode` | | `balanced` | 광고 주기: `low_power` (~1s) \| `balanced` (~250ms) \| `low_latency` (~100ms). |
+| `tx_power` | | `high` | 송신 출력: `ultra_low` \| `low` \| `medium` \| `high`. |
+| `timeout` | | `15s` | 광고 송신 최대 지속 시간 (지나면 자동 중단). |
+| `repeat_interval` | | `null` | 지정 시 해당 주기마다 counter를 증가시키며 payload 갱신 (생략 시 1회 세팅 후 대기). |
+| `stop_on_response` | | `true` | 이 기기의 `match` 조건을 만족하는 응답 패킷 수신 시 즉시 광고 송신 중단. |
+| `connectable` | | `false` | BLE 연결 가능 여부. |
+| `scannable` | | `true` | Scannable 광고 여부. |
+| `include_device_name` | | `false` | 기기 이름 포함 여부 (31바이트 예산 절약을 위해 기본 false 권장). |
+
+> **알림:** `advertise` 블록이 설정된 기기는 HA에 `{id}_advertising` 진단 바이너리 센서(`binary_sensor`)가 자동으로 생성되어 현재 광고 송신 진행 여부(`on`/`off`)를 보고합니다.
 
 ---
 
@@ -439,7 +489,7 @@ decode:
 | `int32` | 4 | 부호 있는 32비트 정수. |
 | `float32` | 4 | IEEE 754 단정밀도 부동소수점. |
 | `timestamp` | 4 | 각 바이트를 월/일/시/분으로 해석. ISO 8601 문자열 반환. |
-| `string` | N | 바이트를 ASCII로 디코딩. `platform: text_sensor`와 함께 사용. |
+| `string` | N | 바이트를 ASCII로 디코딩. `length: 0` 지정 시 잔여 바이트 전체를 가변 길이로 읽고 공백/null을 자동 트림합니다. `platform: text_sensor`와 함께 사용. |
 
 ---
 
@@ -492,7 +542,8 @@ controls:
 | `name` | string | ❌ | HA 표시 이름. 생략 시 key에서 자동 생성. |
 | `icon` | string | ❌ | MDI 아이콘. |
 | `entity_category` | string | ❌ | `config` 또는 `diagnostic`. |
-| `command` | object | ✅ | 명령 맵. type에 따라 키가 다릅니다 (위 예제 참조). |
+| `command` | object | ❌* | 명령 맵. type에 따라 키가 다릅니다 (위 예제 참조). `action`이 없을 때 필수. |
+| `action` | enum | ❌* | 앱 내부 동작 트리거 (`advertise` \| `stop_advertise`). `action` 사용 시 `command` 생략 가능. |
 | `options` | list | select만 | `select` 타입 옵션 목록. |
 | `min` | float | number만 | `number` 타입 최솟값. |
 | `max` | float | number만 | `number` 타입 최댓값. |

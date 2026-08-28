@@ -20,6 +20,10 @@ VALID_DATA_TYPES = {
 }
 VALID_ENDIANS = {"big", "little"}
 VALID_CONTROL_TYPES = {"switch", "number", "select", "button"}
+VALID_CONTROL_ACTIONS = {"advertise", "stop_advertise"}
+VALID_ADVERTISE_MODES = {"low_power", "balanced", "low_latency"}
+VALID_ADVERTISE_TX_POWERS = {"ultra_low", "low", "medium", "high"}
+VALID_ADVERTISE_COUNTER_MODES = {"reset", "persist"}
 VALID_STATE_CLASSES = {"measurement", "measurement_angle", "total", "total_increasing"}
 NUMERIC_DEVICE_CLASSES = {
     "battery", "carbon_dioxide", "carbon_monoxide", "current", "distance",
@@ -35,7 +39,7 @@ NUMERIC_DEVICE_CLASSES = {
 
 KNOWN_DEVICE_KEYS = {
     "id", "name", "source", "match", "instance_mode", "gatt", "obd",
-    "sensors", "controls", "publish"
+    "advertise", "sensors", "controls", "publish"
 }
 KNOWN_MATCH_KEYS = {
     "mac", "service_data_uuid", "manufacturer_id", "manufacturer_hex_prefix",
@@ -48,6 +52,11 @@ KNOWN_OBD_KEYS = {
     "mac", "service_uuid", "tx_char_uuid", "rx_char_uuid", "tx_delay",
     "init_commands", "default_commands", "auto_connect"
 }
+KNOWN_ADVERTISE_KEYS = {
+    "manufacturer_id", "payload", "counter_mode", "counter_start", "mode",
+    "tx_power", "timeout", "repeat_interval", "stop_on_response",
+    "connectable", "scannable", "include_device_name"
+}
 KNOWN_SENSOR_KEYS = {
     "key", "name", "platform", "device_class", "unit", "state_class", "icon",
     "entity_category", "accuracy_decimals", "source_field", "length",
@@ -59,7 +68,7 @@ KNOWN_DECODE_KEYS = {
     "offset_value", "map"
 }
 KNOWN_CONTROL_KEYS = {
-    "key", "type", "name", "icon", "entity_category", "command",
+    "key", "type", "name", "icon", "entity_category", "action", "command",
     "options", "min", "max", "step"
 }
 KNOWN_PUBLISH_KEYS = {
@@ -207,6 +216,82 @@ def validate_sensor(sensor: Any, device_source: str, path: str, res: ValidationR
         validate_publish(sensor["publish"], f"{path}.publish", res)
 
 
+def validate_advertise_payload(payload: str) -> Optional[str]:
+    clean = payload.replace("{counter}", "0").replace("{counter:02X}", "00").replace("{counter:02x}", "00")
+    if not re.match(r"^[0-9A-Fa-f]*$", clean):
+        return f"payload contains invalid hex characters: '{payload}'"
+    if len(clean) % 2 != 0:
+        return f"payload length ({len(clean)}) must be even"
+    byte_len = len(clean) // 2
+    if byte_len > 24:
+        return f"payload size ({byte_len} bytes) exceeds 24 bytes legacy advertisement limit"
+    return None
+
+
+def validate_advertise(adv: Any, device: dict, path: str, res: ValidationResult):
+    if not isinstance(adv, dict):
+        res.error(path, "advertise must be an object")
+        return
+    check_unknown_keys(adv, KNOWN_ADVERTISE_KEYS, path, res)
+
+    if device.get("source") != "advertisement":
+        res.error(path, "'advertise' is only supported for source: advertisement")
+
+    if "manufacturer_id" not in adv:
+        res.error(f"{path}.manufacturer_id", "Missing required 'manufacturer_id'")
+    elif not isinstance(adv["manufacturer_id"], int):
+        res.error(f"{path}.manufacturer_id", f"manufacturer_id must be a decimal integer (got '{adv['manufacturer_id']}')")
+
+    if "payload" not in adv:
+        res.error(f"{path}.payload", "Missing required 'payload'")
+    elif not isinstance(adv["payload"], str):
+        res.error(f"{path}.payload", "payload must be a string")
+    else:
+        err = validate_advertise_payload(adv["payload"])
+        if err:
+            res.error(f"{path}.payload", err)
+
+    if "counter_mode" in adv:
+        cm = str(adv["counter_mode"]).lower()
+        if cm not in VALID_ADVERTISE_COUNTER_MODES:
+            res.error(f"{path}.counter_mode", f"Invalid counter_mode '{adv['counter_mode']}'. Must be one of {sorted(list(VALID_ADVERTISE_COUNTER_MODES))}")
+
+    if "counter_start" in adv:
+        cs = adv["counter_start"]
+        if not isinstance(cs, int) or cs < 0 or cs > 255:
+            res.error(f"{path}.counter_start", f"counter_start must be between 0 and 255 (got '{cs}')")
+
+    if "mode" in adv:
+        m = str(adv["mode"]).lower()
+        if m not in VALID_ADVERTISE_MODES:
+            res.error(f"{path}.mode", f"Invalid mode '{adv['mode']}'. Must be one of {sorted(list(VALID_ADVERTISE_MODES))}")
+
+    if "tx_power" in adv:
+        tp = str(adv["tx_power"]).lower()
+        if tp not in VALID_ADVERTISE_TX_POWERS:
+            res.error(f"{path}.tx_power", f"Invalid tx_power '{adv['tx_power']}'. Must be one of {sorted(list(VALID_ADVERTISE_TX_POWERS))}")
+
+    for dur_field in ["timeout", "repeat_interval"]:
+        if dur_field in adv:
+            val = adv[dur_field]
+            if val is not None and (not isinstance(val, str) or not re.match(r"^\d+(ms|s|m|h)$", str(val).strip())):
+                res.error(f"{path}.{dur_field}", f"Invalid duration '{val}'. Example: 500ms, 15s, 1m")
+
+    for bool_field in ["stop_on_response", "connectable", "scannable", "include_device_name"]:
+        if bool_field in adv and not isinstance(adv[bool_field], bool):
+            res.error(f"{path}.{bool_field}", f"{bool_field} must be a boolean (true/false)")
+
+    if adv.get("include_device_name") is True:
+        res.warning(f"{path}.include_device_name", "include_device_name: true includes device name in advertising data, which may exceed the 31-byte legacy BLE limit")
+
+    if device.get("instance_mode") == "mac" and not device.get("match", {}).get("mac"):
+        res.warning(path, "advertise with instance_mode: mac creates one button per discovered MAC — use instance_mode: shared")
+
+    controls = device.get("controls", [])
+    if isinstance(controls, list) and not any(isinstance(c, dict) and c.get("action") == "advertise" for c in controls):
+        res.warning(path, "'advertise' block has no control with action: advertise — it can only be triggered from the app")
+
+
 def validate_control(control: Any, device_source: str, gatt: Optional[dict], obd: Optional[dict], path: str, res: ValidationResult):
     if not isinstance(control, dict):
         res.error(path, "Control must be an object")
@@ -223,12 +308,24 @@ def validate_control(control: Any, device_source: str, gatt: Optional[dict], obd
         res.error(f"{path}.type", f"Invalid control type '{ctype_str}'. Must be one of {sorted(list(VALID_CONTROL_TYPES))}")
         return
 
+    action = control.get("action")
+    if action is not None:
+        if action not in VALID_CONTROL_ACTIONS:
+            res.error(f"{path}.action", f"Invalid action '{action}'. Must be one of {sorted(list(VALID_CONTROL_ACTIONS))}")
+        # When action is specified, command is optional
+        if "command" not in control:
+            return
+
     if device_source == "gatt_notify":
         if not gatt or not gatt.get("write_char_uuid"):
             res.error(f"{path}", "Control requires write_char_uuid in gatt config")
     elif device_source == "obd":
         if not obd or not obd.get("tx_char_uuid"):
             res.error(f"{path}", "Control requires tx_char_uuid in obd config")
+
+    if "command" not in control:
+        res.error(f"{path}", "Control requires 'command' or 'action'")
+        return
 
     cmd_raw = control.get("command", {})
     if not isinstance(cmd_raw, dict):
@@ -316,6 +413,9 @@ def validate_device(device: Any, path: str, res: ValidationResult):
             res.error(f"{path}.obd", "obd must be an object")
         else:
             check_unknown_keys(obd, KNOWN_OBD_KEYS, f"{path}.obd", res)
+
+    if "advertise" in device:
+        validate_advertise(device["advertise"], device, f"{path}.advertise", res)
 
     sensors = device.get("sensors", [])
     if not isinstance(sensors, list):

@@ -140,7 +140,7 @@ Every entry in `devices` must have a `source` field that selects the data path.
     on_change_only: true
     min_interval: 5s
   sensors: [...]
-  controls: [...]        # gatt_notify / obd only
+  controls: [...]        # gatt_notify / obd / advertisement(action only)
 ```
 
 | Field | Type | Required | Description |
@@ -493,7 +493,8 @@ controls:
 | `name` | string | ❌ | Display name in HA. Auto-generated from key if omitted. |
 | `icon` | string | ❌ | MDI icon string. |
 | `entity_category` | string | ❌ | `config` or `diagnostic`. |
-| `command` | object | ✅ | Command map. Keys depend on type (see examples above). |
+| `command` | object | ❌* | Command map. Keys depend on type (see examples above). Required when `action` is omitted. |
+| `action` | enum | ❌* | Internal app action trigger (`advertise` \| `stop_advertise`). Omit `command` when `action` is specified. |
 | `options` | list | select only | Options list for `select` type. |
 | `min` | float | number only | Minimum value for `number` type. |
 | `max` | float | number only | Maximum value for `number` type. |
