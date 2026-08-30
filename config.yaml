@@ -111,6 +111,23 @@ devices:
     match:
       manufacturer_id: 861            # 0x035D
       manufacturer_hex_prefix: "04"   # 응답 비콘만 매칭 (07=SmartKey 인증, 02=출입 이벤트 제외)
+      manufacturer_min_length: 14     # 최소 14바이트
+    advertise:
+      manufacturer_id: 861            # 0x035D
+      payload: "0205005541{counter:02X}" # 02 + 050055(기기코드) + 41(주차요청) + counter
+      counter_mode: reset            # reset(기본) | persist
+      counter_start: 0
+      mode: balanced
+      tx_power: high
+      timeout: 15s
+      repeat_interval: 1s
+      stop_on_response: true
+    controls:
+      - key: request_location
+        type: button
+        name: "주차위치 요청"
+        action: advertise
+        icon: mdi:car-search
     sensors:
       - key: parking_time
         device_class: timestamp

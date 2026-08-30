@@ -38,14 +38,32 @@ templates:
 
   - id: parking_beacon
     name: "Parking Beacon"
-    description: "Shared parking beacon (manufacturer 861 / 0x035D)"
+    description: "공용 주차 위치 비콘 (제조사 861 / 0x035D, 02 요청 광고 송신 + 04 응답 수신)"
     device:
       id: parking_beacon
       name: "Parking Beacon"
       source: advertisement
       instance_mode: shared
       match:
-        manufacturer_id: 861
+        manufacturer_id: 861              # 0x035D
+        manufacturer_hex_prefix: "04"     # 04 응답 포맷 (특정 스마트키만 필터링 시 04 + 6B MAC HEX 입력)
+        manufacturer_min_length: 14       # 포맷(1B) + 스마트키 MAC(6B) + 시간(4B) + 층(1B) + 구역(2B) = 14바이트
+      advertise:
+        manufacturer_id: 861              # 0x035D
+        payload: "0205005541{counter:02X}" # 02 + 050055(기기코드) + 41(주차요청) + counter
+        counter_mode: reset              # reset(기본) | persist
+        counter_start: 0
+        mode: balanced
+        tx_power: high
+        timeout: 15s
+        repeat_interval: 1s
+        stop_on_response: true
+      controls:
+        - key: request_location
+          type: button
+          name: "주차위치 요청"
+          action: advertise
+          icon: mdi:car-search
       sensors:
         - key: parking_time
           device_class: timestamp
