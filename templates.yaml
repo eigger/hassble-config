@@ -50,13 +50,18 @@ templates:
         manufacturer_min_length: 14       # 포맷(1B) + 스마트키 MAC(6B) + 시간(4B) + 층(1B) + 구역(2B) = 14바이트
       advertise:
         manufacturer_id: 861              # 0x035D
-        payload: "0205005541{counter:02X}" # 02 + 050055(기기코드) + 41(주차요청) + counter
-        counter_mode: reset              # reset(기본) | persist
+        # 02 05 00 | battery 100% | {state} | {counter} — 카운터는 버튼마다 +1, 버스트 중 고정
+        payload: "02050064{state:02X}{counter:02X}"
+        counter_mode: persist            # 요청마다 누적. 0xFF 다음은 0
         counter_start: 0
-        mode: balanced
+        mode: low_latency                # ~100ms → press 200ms 동안 약 1~2패킷
         tx_power: high
-        timeout: 15s
-        repeat_interval: 1s
+        timeout: 4s                      # 페이즈 합(3.2s)보다 약간 큰 상한
+        payload_phases:
+          - state: 65                    # 0x41 버튼 누름 + ACK 대기
+            duration: 200ms
+          - state: 64                    # 0x40 홀드 + ACK 대기
+            duration: 3s
         stop_on_response: true
       controls:
         - key: request_location

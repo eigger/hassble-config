@@ -102,7 +102,8 @@ devices:
   #      decode: { offset: 18, length: 0, type: string }
 
   # Parking beacon — instance_mode: shared → MAC 무관, manufacturer 0x035D 광고가 하나의 엔티티 공유
-  # payload 14바이트: [0]=04(응답타입), [1..6]=KeyMAC, [7..10]=월·일·시·분, [11]=층(256-raw), [12..13]=구역코드
+  # 요청 6바이트: [0]=02 [1]=05 [2]=00 [3]=battery [4]=state [5]=counter
+  # 응답 14바이트: [0]=04(응답타입), [1..6]=KeyMAC, [7..10]=월·일·시·분, [11]=층(256-raw), [12..13]=구역코드
   # 04xx: 주차위치 응답 비콘, 07xx: SmartKey 인증(22B 암호화), 02xx: 출입 이벤트(6B) — prefix "04" 로 응답만 매칭
   - id: parking_beacon
     name: "Parking Beacon"
@@ -114,13 +115,18 @@ devices:
       manufacturer_min_length: 14     # 최소 14바이트
     advertise:
       manufacturer_id: 861            # 0x035D
-      payload: "0205005541{counter:02X}" # 02 + 050055(기기코드) + 41(주차요청) + counter
-      counter_mode: reset            # reset(기본) | persist
+      # 02 05 00 | battery 100% | {state} | {counter} — 카운터는 버튼마다 +1, 버스트 중 고정
+      payload: "02050064{state:02X}{counter:02X}"
+      counter_mode: persist          # 요청마다 누적. 0xFF 다음은 0
       counter_start: 0
-      mode: balanced
+      mode: low_latency              # ~100ms → press 200ms 동안 약 1~2패킷
       tx_power: high
-      timeout: 15s
-      repeat_interval: 1s
+      timeout: 4s                    # 페이즈 합(3.2s)보다 약간 큰 상한
+      payload_phases:
+        - state: 65                  # 0x41 버튼 누름 + ACK 대기
+          duration: 200ms
+        - state: 64                  # 0x40 홀드 + ACK 대기
+          duration: 3s
       stop_on_response: true
     controls:
       - key: request_location

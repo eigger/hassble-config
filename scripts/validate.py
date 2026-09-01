@@ -54,8 +54,11 @@ KNOWN_OBD_KEYS = {
 }
 KNOWN_ADVERTISE_KEYS = {
     "manufacturer_id", "payload", "counter_mode", "counter_start", "mode",
-    "tx_power", "timeout", "repeat_interval", "stop_on_response",
+    "tx_power", "timeout", "repeat_interval", "payload_phases", "stop_on_response",
     "connectable", "scannable", "include_device_name"
+}
+KNOWN_ADVERTISE_PHASE_KEYS = {
+    "state", "duration", "payload"
 }
 KNOWN_SENSOR_KEYS = {
     "key", "name", "platform", "device_class", "unit", "state_class", "icon",
@@ -216,8 +219,22 @@ def validate_sensor(sensor: Any, device_source: str, path: str, res: ValidationR
         validate_publish(sensor["publish"], f"{path}.publish", res)
 
 
+_PAYLOAD_TOKEN_RE = re.compile(r"\{(counter|state)(?::[^}]+)?\}")
+_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
+
+
+def _payload_has_state_token(payload: str) -> bool:
+    return any(m.group(1) == "state" for m in _PAYLOAD_TOKEN_RE.finditer(payload))
+
+
 def validate_advertise_payload(payload: str) -> Optional[str]:
-    clean = payload.replace("{counter}", "0").replace("{counter:02X}", "00").replace("{counter:02x}", "00")
+    def subst(m: re.Match) -> str:
+        token = m.group(0)
+        if ":02X" in token or ":02x" in token:
+            return "00"
+        return "0"
+
+    clean = _PAYLOAD_TOKEN_RE.sub(subst, payload)
     if not re.match(r"^[0-9A-Fa-f]*$", clean):
         return f"payload contains invalid hex characters: '{payload}'"
     if len(clean) % 2 != 0:
@@ -274,8 +291,39 @@ def validate_advertise(adv: Any, device: dict, path: str, res: ValidationResult)
     for dur_field in ["timeout", "repeat_interval"]:
         if dur_field in adv:
             val = adv[dur_field]
-            if val is not None and (not isinstance(val, str) or not re.match(r"^\d+(ms|s|m|h)$", str(val).strip())):
+            if val is not None and (not isinstance(val, str) or not _DURATION_RE.match(str(val).strip())):
                 res.error(f"{path}.{dur_field}", f"Invalid duration '{val}'. Example: 500ms, 15s, 1m")
+
+    phases = adv.get("payload_phases", [])
+    if phases:
+        if not isinstance(phases, list):
+            res.error(f"{path}.payload_phases", "payload_phases must be a list")
+        else:
+            if adv.get("repeat_interval"):
+                res.warning(f"{path}.repeat_interval", "repeat_interval is ignored when payload_phases is set — counter stays fixed across phases")
+            for i, phase in enumerate(phases):
+                ppath = f"{path}.payload_phases[{i}]"
+                if not isinstance(phase, dict):
+                    res.error(ppath, "payload_phases item must be an object")
+                    continue
+                check_unknown_keys(phase, KNOWN_ADVERTISE_PHASE_KEYS, ppath, res)
+                duration = phase.get("duration")
+                if not isinstance(duration, str) or not _DURATION_RE.match(duration.strip()):
+                    res.error(f"{ppath}.duration", f"Invalid duration '{duration}'. Example: 200ms, 3s")
+                state = phase.get("state")
+                if state is not None and (not isinstance(state, int) or state < 0 or state > 255):
+                    res.error(f"{ppath}.state", f"state must be between 0 and 255 (got '{state}')")
+                template = phase["payload"] if isinstance(phase.get("payload"), str) and phase["payload"].strip() else adv.get("payload", "")
+                if isinstance(template, str):
+                    if _payload_has_state_token(template) and state is None:
+                        res.error(f"{ppath}.state", "payload_phases item has a {state} token but no state value")
+                    err = validate_advertise_payload(template)
+                    if err:
+                        res.error(ppath, err)
+
+    payload = adv.get("payload")
+    if isinstance(payload, str) and _payload_has_state_token(payload) and not phases:
+        res.error(f"{path}.payload", "payload contains {state} but advertise.payload_phases is empty")
 
     for bool_field in ["stop_on_response", "connectable", "scannable", "include_device_name"]:
         if bool_field in adv and not isinstance(adv[bool_field], bool):
