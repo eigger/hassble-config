@@ -122,6 +122,7 @@ devices:
       mode: low_latency              # ~100ms → press 200ms 동안 약 1~2패킷
       tx_power: high
       timeout: 4s                    # 페이즈 합(3.2s)보다 약간 큰 상한
+      local_name: "APT SmartKey"     # Complete Local Name. 송신 중 이 이름으로 바꾸고, 종료·재시작 때 초기값으로 되돌림
       payload_phases:
         - state: 65                  # 0x41 버튼 누름 + ACK 대기
           duration: 200ms

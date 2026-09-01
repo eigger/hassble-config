@@ -55,7 +55,7 @@ KNOWN_OBD_KEYS = {
 KNOWN_ADVERTISE_KEYS = {
     "manufacturer_id", "payload", "counter_mode", "counter_start", "mode",
     "tx_power", "timeout", "repeat_interval", "payload_phases", "stop_on_response",
-    "connectable", "scannable", "include_device_name"
+    "connectable", "scannable", "include_device_name", "local_name"
 }
 KNOWN_ADVERTISE_PHASE_KEYS = {
     "state", "duration", "payload"
@@ -245,6 +245,23 @@ def validate_advertise_payload(payload: str) -> Optional[str]:
     return None
 
 
+def _payload_byte_len(payload: str) -> Optional[int]:
+    def subst(m: re.Match) -> str:
+        token = m.group(0)
+        if ":02X" in token or ":02x" in token:
+            return "00"
+        return "0"
+
+    clean = _PAYLOAD_TOKEN_RE.sub(subst, payload)
+    if not re.match(r"^[0-9A-Fa-f]*$", clean) or len(clean) % 2 != 0:
+        return None
+    return len(clean) // 2
+
+
+def _legacy_adv_size(payload_bytes: int, local_name: str) -> int:
+    return 3 + 4 + payload_bytes + 2 + len(local_name.encode("utf-8"))
+
+
 def validate_advertise(adv: Any, device: dict, path: str, res: ValidationResult):
     if not isinstance(adv, dict):
         res.error(path, "advertise must be an object")
@@ -329,8 +346,43 @@ def validate_advertise(adv: Any, device: dict, path: str, res: ValidationResult)
         if bool_field in adv and not isinstance(adv[bool_field], bool):
             res.error(f"{path}.{bool_field}", f"{bool_field} must be a boolean (true/false)")
 
-    if adv.get("include_device_name") is True:
+    if adv.get("include_device_name") is True and not (isinstance(adv.get("local_name"), str) and adv["local_name"].strip()):
         res.warning(f"{path}.include_device_name", "include_device_name: true includes device name in advertising data, which may exceed the 31-byte legacy BLE limit")
+
+    local_name = adv.get("local_name")
+    if local_name is not None:
+        if not isinstance(local_name, str):
+            res.error(f"{path}.local_name", "local_name must be a string")
+        else:
+            name = local_name.strip()
+            if not name:
+                res.warning(f"{path}.local_name", "local_name is empty after trim — ignored")
+            else:
+                name_bytes = len(name.encode("utf-8"))
+                if name_bytes > 248:
+                    res.error(f"{path}.local_name", f"local_name UTF-8 size ({name_bytes} bytes) exceeds Bluetooth name limit (248)")
+                templates = [adv.get("payload", "")]
+                if isinstance(phases, list) and phases:
+                    templates = []
+                    for phase in phases:
+                        if not isinstance(phase, dict):
+                            continue
+                        override = phase.get("payload")
+                        if isinstance(override, str) and override.strip():
+                            templates.append(override)
+                        else:
+                            templates.append(adv.get("payload", ""))
+                for i, template in enumerate(templates):
+                    if not isinstance(template, str):
+                        continue
+                    blen = _payload_byte_len(template)
+                    if blen is None:
+                        continue
+                    total = _legacy_adv_size(blen, name)
+                    if total > 31:
+                        loc = f"{path}.local_name" if not phases else f"{path}.payload_phases[{i}]"
+                        res.error(loc, f"local_name '{name}' plus payload would be {total} bytes, exceeding the 31-byte legacy BLE limit")
+                res.warning(f"{path}.local_name", "local_name resets the phone Bluetooth name after advertising (and again on next app start if the process was killed)")
 
     if device.get("instance_mode") == "mac" and not device.get("match", {}).get("mac"):
         res.warning(path, "advertise with instance_mode: mac creates one button per discovered MAC — use instance_mode: shared")
