@@ -46,8 +46,11 @@ KNOWN_MATCH_KEYS = {
     "manufacturer_min_length", "name_prefix"
 }
 KNOWN_GATT_KEYS = {
-    "mac", "service_uuid", "notify_char_uuid", "write_char_uuid", "auto_connect"
+    "mac", "service_uuid", "notify_char_uuid", "write_char_uuid", "auto_connect",
+    "encryption", "poll", "response_prefix",
 }
+KNOWN_GATT_ENCRYPTION_KEYS = {"type", "key_hex", "iv_hex"}
+KNOWN_GATT_POLL_KEYS = {"command", "interval", "write_with_response", "response_timeout"}
 KNOWN_OBD_KEYS = {
     "mac", "service_uuid", "tx_char_uuid", "rx_char_uuid", "tx_delay",
     "init_commands", "default_commands", "auto_connect"
@@ -241,7 +244,8 @@ def validate_sensor(sensor: Any, device_source: str, path: str, res: ValidationR
         if sensor.get("pid") is None and sensor.get("preset") is None:
             res.error(f"{path}", "OBD sensor requires 'pid' or 'preset'")
     elif device_source in {"advertisement", "gatt_notify"}:
-        if decode is None and platform != "binary_sensor":
+        # gatt_notify sensors may use formula (a=byte0 ...) instead of decode
+        if decode is None and platform != "binary_sensor" and not (device_source == "gatt_notify" and sensor.get("formula")):
             res.warning(f"{path}.decode", "No decode config — sensor will never produce a value")
 
     if "publish" in sensor:
@@ -421,6 +425,56 @@ def validate_advertise(adv: Any, device: dict, path: str, res: ValidationResult)
         res.warning(path, "'advertise' block has no control with action: advertise — it can only be triggered from the app")
 
 
+def _hex_bytes(v: Any) -> Optional[int]:
+    """Number of bytes in a hex string, or None if not valid hex."""
+    if not isinstance(v, str):
+        return None
+    h = v.replace(" ", "")
+    if len(h) % 2 != 0 or not re.fullmatch(r"[0-9a-fA-F]*", h):
+        return None
+    return len(h) // 2
+
+
+def validate_gatt_poll(gatt: dict, path: str, res: ValidationResult):
+    """Encrypted / polled GATT fields (encryption, poll, response_prefix)."""
+    enc = gatt.get("encryption")
+    if enc is not None:
+        if not isinstance(enc, dict):
+            res.error(f"{path}.encryption", "encryption must be an object")
+            enc = None
+        else:
+            check_unknown_keys(enc, KNOWN_GATT_ENCRYPTION_KEYS, f"{path}.encryption", res)
+            if enc.get("type", "aes128_cbc") != "aes128_cbc":
+                res.error(f"{path}.encryption.type", "Only 'aes128_cbc' is supported")
+            if _hex_bytes(enc.get("key_hex")) != 16:
+                res.error(f"{path}.encryption.key_hex", "key_hex must be 32 hex characters (AES-128 key)")
+            if "iv_hex" in enc and _hex_bytes(enc.get("iv_hex")) != 16:
+                res.error(f"{path}.encryption.iv_hex", "iv_hex must be 32 hex characters (16 bytes)")
+    poll = gatt.get("poll")
+    if poll is not None:
+        if not isinstance(poll, dict):
+            res.error(f"{path}.poll", "poll must be an object")
+        else:
+            check_unknown_keys(poll, KNOWN_GATT_POLL_KEYS, f"{path}.poll", res)
+            if not gatt.get("write_char_uuid"):
+                res.error(f"{path}.write_char_uuid", "poll requires write_char_uuid")
+            n = _hex_bytes(poll.get("command"))
+            if not n:
+                res.error(f"{path}.poll.command", "poll.command must be non-empty hex")
+            elif enc is not None and n % 16 != 0:
+                res.error(f"{path}.poll.command", f"poll.command must be a multiple of 16 bytes when encryption is set (was {n})")
+            for key in ("interval", "response_timeout"):
+                v = poll.get(key)
+                if v is not None and not _DURATION_RE.match(str(v).strip()):
+                    res.error(f"{path}.poll.{key}", f"poll.{key} '{v}' is not a valid duration (e.g. 60s, 500ms)")
+            wwr = poll.get("write_with_response")
+            if wwr is not None and not isinstance(wwr, bool):
+                res.error(f"{path}.poll.write_with_response", "write_with_response must be true/false")
+    prefix = gatt.get("response_prefix")
+    if prefix is not None and _hex_bytes(str(prefix)) is None:
+        res.error(f"{path}.response_prefix", "response_prefix must be hex")
+
+
 def validate_control(control: Any, device_source: str, gatt: Optional[dict], obd: Optional[dict], path: str, res: ValidationResult):
     if not isinstance(control, dict):
         res.error(path, "Control must be an object")
@@ -536,6 +590,7 @@ def validate_device(device: Any, path: str, res: ValidationResult,
                     res.error(f"{path}.gatt.service_uuid", "Missing required 'service_uuid'")
                 if not gatt.get("notify_char_uuid"):
                     res.error(f"{path}.gatt.notify_char_uuid", "Missing required 'notify_char_uuid'")
+            validate_gatt_poll(gatt, f"{path}.gatt", res)
 
     obd = device.get("obd")
     if obd:
